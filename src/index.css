@@ -1,67 +1,24 @@
-/* index.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* Tumhare dashboard ke global variables + table styling */
 :root {
-  --accent: #2563eb;
+  --bg: #f1f5f9;
+  --bg2: #ffffff;
   --bg3: #f8fafc;
-  --border: #e2e8f0;
   --text: #0f172a;
-  --text2: #64748b;
+  --text2: #475569;
   --text3: #94a3b8;
+  --border: #e2e8f0;
+  --accent: #2563eb;
+  --red: #dc2626;
   --green: #16a34a;
-  --red: #ef4444;
-  --radius: 8px;
-  --radius-lg: 12px;
-  --shadow: 0 10px 30px rgba(15,23,42,.06);
-  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-          "Liberation Mono", "Courier New", monospace;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.12);
 }
 
-/* Tailwind ke upar custom global styling rakhna common pattern hai.[web:28] */
 body {
   background-color: #f1f5f9;
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-input, select, button {
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  font-size: 13px;
-  padding: 7px 10px;
-  outline: none;
-  background:#fff;
-}
-
-button {
-  cursor: pointer;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-th, td {
-  padding: 10px 12px;
-  text-align: left;
-}
-
-thead th {
-  background:#f8fafc;
-  color: var(--text2);
-  font-weight:600;
-  border-bottom:1px solid var(--border);
-}
-
-tbody tr:nth-child(even) {
-  background:#f9fafb;
-}
-
-tbody tr:hover {
-  background:#eff6ff;
 }
