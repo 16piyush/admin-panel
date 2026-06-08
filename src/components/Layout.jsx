@@ -58,7 +58,7 @@ export default function Layout() {
   })
 
   return (
-    <div className="flex h-screen bg-[#F8FAFC] overflow-hidden font-sans">
+    <div className="flex min-h-screen bg-[#F8FAFC] font-sans">
 
       {/* Sidebar */}
       <aside 
