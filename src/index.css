@@ -22,7 +22,7 @@
 
 /* Tailwind ke upar custom global styling rakhna common pattern hai.[web:28] */
 body {
-  @apply bg-slate-100;
+  background-color: #f1f5f9;
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
