@@ -124,6 +124,28 @@ export const adminAPI = {
   getSubscriptions: (params) => api.get('/admin/subscriptions', { params }),
   getBookings:      (params) => api.get('/admin/bookings', { params }),
   getRevenueStats:  ()       => api.get('/admin/stats/revenue'),
+
+  // Franchise Partners
+getFranchises: (params) =>
+  api.get('/admin/users', {
+    params: { ...params, role: 'FR' }
+  }).then(normalizeUsers),
+
+createFranchise: (data) =>
+  api.post('/admin/users/create', {
+    name: data.name || data.businessName,
+    mobileNo: data.mobileNo || data.mobile,
+    email: data.email,
+    password: data.password || 'User@123',
+    role: 'FR',
+    notes: data.notes || `Business: ${data.businessName || ''}, City: ${data.city || ''}, Region: ${data.region || ''}, GSTIN: ${data.gstin || ''}, Address: ${data.address || ''}`,
+  }),
+
+approveFranchise: (id) =>
+  api.put(`/admin/users/${id}/approve`),
+
+rejectFranchise: (id) =>
+  api.put(`/admin/users/${id}/reject`),
 }
 
 export default api

@@ -113,6 +113,7 @@ export default function PartnerApprovals() {
   const [statusF,   setStatusF]   = useState('')
   const [activeTab, setActiveTab] = useState('all')
   const [page,      setPage]      = useState(1)
+  const [selectedPartner, setSelectedPartner] = useState(null)
   const [dateF, setDateF] = useState('')
   const perPage = 10
 
@@ -418,7 +419,8 @@ const totalPending = allData.filter(p => p.status === 'pending_approval').length
                         <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                           {/* View */}
                           <button title="View Details"
-                            style={{ ...iBtn, color:'var(--text2)' }}>👁</button>
+                            onClick={() => setSelectedPartner(p)}
+                             style={{ ...iBtn, color:'var(--text2)' }}>👁</button>
 
                           {/* Approve — show for pending/unverified/not approved */}
                           <button title="Approve"
@@ -476,7 +478,76 @@ const totalPending = allData.filter(p => p.status === 'pending_approval').length
             <option>10 / page</option><option>25 / page</option><option>50 / page</option>
           </select>
         </div>
-      </div>
+           </div>
+
+      {selectedPartner && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              width: '90%',
+              maxWidth: 600,
+              borderRadius: 16,
+              padding: 24,
+              boxShadow: '0 20px 60px rgba(0,0,0,.25)',
+            }}
+          >
+            <div style={{
+              display:'flex',
+              justifyContent:'space-between',
+              alignItems:'center',
+              marginBottom:20
+            }}>
+              <h2 style={{ margin:0 }}>Partner Details</h2>
+
+              <button
+                onClick={() => setSelectedPartner(null)}
+                style={iBtn}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display:'grid', gap:12 }}>
+              <div><b>Name:</b> {selectedPartner.name || '—'}</div>
+              <div><b>Role:</b> {selectedPartner.role || '—'}</div>
+              <div><b>Status:</b> {selectedPartner.status || '—'}</div>
+              <div><b>Mobile:</b> {selectedPartner.mobileNo || selectedPartner.mobile || '—'}</div>
+              <div><b>Email:</b> {selectedPartner.email || '—'}</div>
+              <div><b>City:</b> {selectedPartner.city || '—'}</div>
+              <div><b>Location:</b> {selectedPartner.location || selectedPartner.address || '—'}</div>
+              <div><b>Registration ID:</b> {selectedPartner.regId || '—'}</div>
+            </div>
+
+            <button
+              onClick={() => setSelectedPartner(null)}
+              style={{
+                marginTop:20,
+                padding:'10px 16px',
+                border:'none',
+                borderRadius:10,
+                background:'var(--accent)',
+                color:'#fff',
+                cursor:'pointer',
+                fontWeight:600
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

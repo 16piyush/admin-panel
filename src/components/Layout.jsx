@@ -30,7 +30,7 @@ const NAV = [
     { to: '/ncsp-partners/settlement', label: 'Settlement' },
   ],
 },
-  { to:'/franchise-partners', icon: <Store size={18}/>,            label:'Franchise Partners' },
+  { to:'/franchises', icon: <Store size={18}/>, label:'Franchise Partners' },
   { to:'/create-user',        icon: <Users2 size={18}/>,           label:'Internal Team' },
   { label:'OPERATIONS', type:'section' },
   { to:'/bookings',           icon: <Calendar size={18}/>,         label:'Bookings' },
