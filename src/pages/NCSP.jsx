@@ -871,20 +871,15 @@ const inStyle  = { width:'100%', padding:'9px 12px', fontSize:13, border:'1px so
 const secStyle = { fontSize:11, fontWeight:700, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'.05em', marginBottom:10, paddingBottom:6, borderBottom:'1px solid var(--border)' }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
-export default function NCSPPartners({ defaultTab = 'all' }) {
-  const [activeTab, setActiveTab] = useState(defaultTab)
-
-  useEffect(() => {
-    setActiveTab(defaultTab)
-  }, [defaultTab])
+export default function NCSPPartners() {
+  const [activeTab, setActiveTab] = useState('all')
 
   const TABS = [
-  { key:'all', label:'All NCSP Partners' },
-  { key:'add', label:'Add Partner' },
-  { key:'approvals', label:'Partner Approvals', badge: MOCK_PENDING.length },
-  { key:'performance', label:'Performance' },
-  { key:'settlement', label:'Settlement' },
-]
+    { key:'all',         label:'All NCSP Partners'  },
+    { key:'approvals',   label:'Partner Approvals', badge: MOCK_PENDING.length },
+    { key:'performance', label:'Performance'        },
+    { key:'settlement',  label:'Settlement'         },
+  ]
 
   return (
     <div style={{ maxWidth:1400 }}>
@@ -916,31 +911,15 @@ export default function NCSPPartners({ defaultTab = 'all' }) {
         ))}
       </div>
 
-     {activeTab === 'all' && <AllPartners />}
-
-{activeTab === 'add' && (
-  <AddNCSPModal
-    onClose={() => setActiveTab('all')}
-    onSuccess={() => setActiveTab('all')}
-  />
-)}
-
-{activeTab === 'approvals' && <PartnerApprovals />}
-
-{activeTab === 'performance' && <Performance />}
-
-{activeTab === 'settlement' && (
-  <div style={{
-    padding:48,
-    textAlign:'center',
-    color:'var(--text3)',
-    background:'#fff',
-    border:'1px solid var(--border)',
-    borderRadius:'var(--radius-lg)'
-  }}>
-    Settlement module — coming soon
-  </div>
-)}
+      {activeTab === 'all'         && <AllPartners />}
+      {activeTab === 'approvals'   && <PartnerApprovals />}
+      {activeTab === 'performance' && <Performance />}
+      {activeTab === 'settlement'  && (
+        <div style={{ padding:48, textAlign:'center', color:'var(--text3)',
+          background:'#fff', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)' }}>
+          Settlement module — coming soon
+        </div>
+      )}
     </div>
   )
 }

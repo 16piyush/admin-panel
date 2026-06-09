@@ -18,132 +18,7 @@ const AVATAR_COLORS = [
 const avatarColor = (name='') =>
   AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
 
-// ── Add Customer Modal ────────────────────────────────────────────────────────
-function AddCustomerModal({ onClose, onSuccess }) {
-  const [form, setForm] = useState({
-    name:'', mobileNo:'', email:'', apartment:'', notes:''
-  })
-  const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState('')
 
-  const set = (k,v) => { setForm(f=>({...f,[k]:v})); setError('') }
-
-  const handleSubmit = async () => {
-    if (!form.name)                                     return setError('Name is required')
-    if (!form.mobileNo || form.mobileNo.length !== 10)  return setError('Valid 10-digit mobile required')
-    setLoading(true)
-    try {
-      await adminAPI.createInternal({
-        name:     form.name,
-        mobile:   form.mobileNo,
-        email:    form.email,
-        password: 'User@123',
-        role:     'CU',
-        notes:    `Apartment: ${form.apartment}. ${form.notes}`,
-      })
-      onSuccess()
-      onClose()
-    } catch(e) {
-      setError(e.response?.data?.message || 'Failed to create customer')
-    } finally { setLoading(false) }
-  }
-
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,.5)',
-      display:'flex', alignItems:'center', justifyContent:'center',
-      zIndex:300, padding:16 }}
-      onClick={e => e.target===e.currentTarget && onClose()}>
-      <div style={{ background:'#fff', borderRadius:24, width:560,
-        boxShadow:'0 24px 64px rgba(0,0,0,.15)', overflow:'hidden' }}>
-
-        <div style={{ padding:'24px 28px', borderBottom:'1px solid var(--border)',
-          display:'flex', justifyContent:'space-between', alignItems:'flex-start',
-          background:'var(--bg3)' }}>
-          <div>
-            <div style={{ fontSize:18, fontWeight:800, letterSpacing:'-.02em' }}>
-              Add New Customer
-            </div>
-            <div style={{ fontSize:11, color:'var(--text3)', marginTop:3,
-              textTransform:'uppercase', letterSpacing:'.06em' }}>
-              Manual Database Entry
-            </div>
-          </div>
-          <button onClick={onClose}
-            style={{ background:'transparent', border:'none',
-              fontSize:20, color:'var(--text3)', cursor:'pointer',
-              padding:'4px 6px' }}>✕</button>
-        </div>
-
-        <div style={{ padding:'28px' }}>
-          {error && (
-            <div style={{ background:'#fef2f2', border:'1px solid #fecaca',
-              borderRadius:'var(--radius)', padding:'10px 14px',
-              fontSize:13, color:'var(--red)', marginBottom:16 }}>
-              ⚠ {error}
-            </div>
-          )}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16,
-            marginBottom:16 }}>
-            {[
-              ['Full Name *',     'name',     'text',  'e.g. Rahul Kumar',    true ],
-              ['Mobile Number *', 'mobileNo', 'tel',   '10-digit mobile',     true ],
-              ['Email',           'email',    'email', 'email@example.com',   false],
-              ['Apartment',       'apartment','text',  'e.g. Green View Hts', false],
-            ].map(([label,key,type,ph,req]) => (
-              <div key={key}>
-                <label style={{ fontSize:11, fontWeight:700, display:'block',
-                  marginBottom:6, color:'var(--text2)',
-                  textTransform:'uppercase', letterSpacing:'.05em' }}>
-                  {label}
-                </label>
-                <input type={type} placeholder={ph} value={form[key]}
-                  maxLength={key==='mobileNo'?10:undefined}
-                  onChange={e => set(key, key==='mobileNo'
-                    ? e.target.value.replace(/\D/g,'') : e.target.value)}
-                  style={{ background:'var(--bg3)', border:'none',
-                    borderRadius:12, padding:'12px 14px' }} />
-              </div>
-            ))}
-          </div>
-          <div>
-            <label style={{ fontSize:11, fontWeight:700, display:'block',
-              marginBottom:6, color:'var(--text2)',
-              textTransform:'uppercase', letterSpacing:'.05em' }}>
-              Notes
-            </label>
-            <textarea rows={2} placeholder="Any additional notes..."
-              value={form.notes} onChange={e => set('notes', e.target.value)}
-              style={{ background:'var(--bg3)', border:'none',
-                borderRadius:12, padding:'12px 14px', resize:'none' }} />
-          </div>
-          <div style={{ marginTop:16, padding:'10px 14px', background:'#eff6ff',
-            borderRadius:10, fontSize:12, color:'#1d4ed8' }}>
-            ℹ Default password will be set as <strong>User@123</strong> — share with customer
-          </div>
-        </div>
-
-        <div style={{ padding:'16px 28px', borderTop:'1px solid var(--border)',
-          display:'flex', gap:12, background:'var(--bg3)' }}>
-          <button onClick={onClose}
-            style={{ flex:1, padding:'13px', fontSize:13, fontWeight:700,
-              background:'#e2e8f0', color:'var(--text2)',
-              borderRadius:14, textTransform:'uppercase',
-              letterSpacing:'.05em' }}>
-            Cancel
-          </button>
-          <button onClick={handleSubmit} disabled={loading}
-            style={{ flex:1, padding:'13px', fontSize:13, fontWeight:700,
-              background:'var(--accent)', color:'#fff',
-              borderRadius:14, textTransform:'uppercase', letterSpacing:'.05em',
-              boxShadow:'0 4px 14px rgba(37,99,235,.3)',
-              opacity: loading ? .7:1 }}>
-            {loading ? 'Processing...' : 'Save Customer'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── View Customer Modal ───────────────────────────────────────────────────────
 function ViewCustomerModal({ customer, onClose, onAction }) {
@@ -254,7 +129,6 @@ export default function Users() {
   const [status,    setStatus]    = useState('')
   const [selected,  setSelected]  = useState(null)
   const [viewModal, setViewModal] = useState(null)
-  const [showAdd,   setShowAdd]   = useState(false)
   const LIMIT = 10
 
   const load = useCallback(() => {
@@ -311,13 +185,7 @@ export default function Users() {
             fontSize:13, fontWeight:600, color:'var(--text2)' }}>
             ↓ Export
           </button>
-          <button onClick={() => setShowAdd(true)}
-            style={{ display:'flex', alignItems:'center', gap:6,
-              padding:'10px 18px', background:'var(--accent)', color:'#fff',
-              borderRadius:12, fontSize:13, fontWeight:700,
-              boxShadow:'0 4px 14px rgba(37,99,235,.3)' }}>
-            + Add Customer
-          </button>
+          
         </div>
       </div>
 
@@ -411,11 +279,6 @@ export default function Users() {
             <div style={{ fontSize:15, fontWeight:700, marginBottom:6 }}>
               No customers found
             </div>
-            <button onClick={() => setShowAdd(true)}
-              style={{ padding:'9px 20px', background:'var(--accent)',
-                color:'#fff', borderRadius:12, fontSize:13, fontWeight:600 }}>
-              + Add First Customer
-            </button>
           </div>
         ) : (
           <>
@@ -591,9 +454,6 @@ export default function Users() {
       </div>
 
       {/* Modals */}
-      {showAdd && (
-        <AddCustomerModal onClose={()=>setShowAdd(false)} onSuccess={load} />
-      )}
       {viewModal && (
         <ViewCustomerModal
           customer={viewModal}
