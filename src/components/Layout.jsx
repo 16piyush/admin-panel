@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import logo from '../assets/logo.jpeg'
 import { 
   LayoutDashboard, Users, ClipboardList, CheckCircle, 
   Truck, UserCog, Building2, Store, Users2, 
@@ -8,6 +9,7 @@ import {
   Building, BarChart3, Bell, Settings, 
   ShieldCheck, History, LogOut, Menu, Plus 
 } from 'lucide-react'
+
 
 const NAV = [
   { to:'/dashboard',          icon: <LayoutDashboard size={18}/>,  label:'Dashboard' },
@@ -67,15 +69,11 @@ export default function Layout() {
       >
         {/* Logo Section */}
         <div className="p-4 border-b border-slate-50 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#0047FF] flex items-center justify-center text-white shadow-lg shadow-blue-100 flex-shrink-0">
-             <Truck size={20} />
+         <div className="flex items-center gap-3">
+          <img src={logo} alt="GoMotorCar" className="h-12 w-auto object-contain"/>
+
+        
           </div>
-          {!collapsed && (
-            <div className="overflow-hidden">
-              <div className="font-black text-slate-800 text-lg leading-none tracking-tighter italic">GOMOTORCAR</div>
-              <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Admin Panel</div>
-            </div>
-          )}
         </div>
 
         {/* Navigation Items */}

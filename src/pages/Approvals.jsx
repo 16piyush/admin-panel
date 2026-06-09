@@ -1,227 +1,487 @@
-import { useState, useEffect, useCallback } from 'react';
-import { adminAPI } from '../services/api';
-import { 
-  Users, CheckCircle, XCircle, Clock, Search, Filter, 
-  Download, Eye, Check, X, MoreVertical, Calendar, 
-  UserCheck, Building2, Store, Truck, ChevronLeft, ChevronRight, FileText
-} from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react'
+import { adminAPI } from '../services/api'
 
-// ── Helpers ──
-const ROLE_NAME = { CL: 'Car Cleaner', NC: 'NCSP Partner', FR: 'Franchise (CSP)', FS: 'Steam Wash', SU: 'Supervisor' };
-const ROLE_COLOR = { CL: '#3b82f6', NC: '#a855f7', FR: '#f97316', FS: '#0d9488', SU: '#22c55e' };
+function useWindowWidth() {
+  const [w, setW] = useState(() => typeof window !== 'undefined' ? window.innerWidth : 1280)
+  useEffect(() => {
+    const h = () => setW(window.innerWidth)
+    window.addEventListener('resize', h)
+    return () => window.removeEventListener('resize', h)
+  }, [])
+  return w
+}
 
-export default function Approvals() {
-  const [pending, setPending] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
-  const [search, setSearch] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showReviewModal, setShowReviewModal] = useState(false);
+function getInitials(name = '') {
+  return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
+}
+const COLORS = ['#2563eb','#7c3aed','#db2777','#059669','#ea580c','#0891b2','#be185d','#9333ea','#16a34a','#dc2626']
+function colorFor(s = '') {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h)
+  return COLORS[Math.abs(h) % COLORS.length]
+}
 
-  // ── 1. API: FETCH PENDING DATA ──
-  const load = useCallback(async () => {
-    setLoading(true);
+// ── Mock Data ─────────────────────────────────────────────────────────────────
+const MOCK_ALL = [
+  { _id:'1',  regId:'REG-CL-10234', role:'CL', name:'Ramesh Kumar',    business:'Individual',     mobile:'+91 98765 43210', email:'ramesh.kumar@email.com',  location:'Green View Heights', city:'Bangalore', submittedOn:'2025-05-24T10:15:00', docs:5, totalDocs:6, status:'Pending'  },
+  { _id:'2',  regId:'REG-SU-10187', role:'SU', name:'Suresh Yadav',    business:'Individual',     mobile:'+91 87654 32109', email:'suresh.yadav@email.com',   location:'Skyline Residency',  city:'Bangalore', submittedOn:'2025-05-24T09:45:00', docs:6, totalDocs:6, status:'Pending'  },
+  { _id:'3',  regId:'REG-NC-10876', role:'NC', name:'Shine Auto Care', business:'Company',        mobile:'+91 99876 54321', email:'info@shineauto.com',       location:'HSR Layout',         city:'Bangalore', submittedOn:'2025-05-24T09:30:00', docs:7, totalDocs:7, status:'Pending'  },
+  { _id:'4',  regId:'REG-FR-10565', role:'FR', name:'Speed Auto Care', business:'Company',        mobile:'+91 90123 45678', email:'contact@speedauto.com',    location:'Koramangala',        city:'Bangalore', submittedOn:'2025-05-24T09:10:00', docs:8, totalDocs:8, status:'Pending'  },
+  { _id:'5',  regId:'REG-FS-10456', role:'FS', name:'Aqua Steam Wash', business:'Company',        mobile:'+91 78945 61230', email:'info@aquasteam.com',       location:'Whitefield',         city:'Bangalore', submittedOn:'2025-05-24T08:50:00', docs:6, totalDocs:7, status:'Pending'  },
+  { _id:'6',  regId:'REG-CL-10233', role:'CL', name:'Vikram Singh',    business:'Individual',     mobile:'+91 76543 21098', email:'vikram.singh@email.com',   location:'Sunrise Apartments', city:'Bangalore', submittedOn:'2025-05-24T08:20:00', docs:4, totalDocs:6, status:'Pending'  },
+  { _id:'7',  regId:'REG-NC-10875', role:'NC', name:'Tyre Experts',    business:'Company',        mobile:'+91 81234 56789', email:'hello@tyreexperts.com',    location:'Jayanagar',          city:'Bangalore', submittedOn:'2025-05-23T19:15:00', docs:6, totalDocs:7, status:'Pending'  },
+  { _id:'8',  regId:'REG-SU-10186', role:'SU', name:'Anita Devi',      business:'Individual',     mobile:'+91 95432 10987', email:'anita.devi@email.com',     location:'Lake View Towers',   city:'Bangalore', submittedOn:'2025-05-23T18:45:00', docs:5, totalDocs:6, status:'Pending'  },
+  { _id:'9',  regId:'REG-CL-10232', role:'CL', name:'Pooja Sharma',    business:'Individual',     mobile:'+91 65432 10987', email:'pooja.sharma@email.com',   location:'Green View Heights', city:'Bangalore', submittedOn:'2025-05-23T17:30:00', docs:3, totalDocs:6, status:'Pending'  },
+  { _id:'10', regId:'REG-FR-10564', role:'FR', name:'QuickFix Auto',   business:'Company',        mobile:'+91 74321 09876', email:'info@quickfix.com',        location:'Electronic City',    city:'Bangalore', submittedOn:'2025-05-23T16:00:00', docs:8, totalDocs:8, status:'Pending'  },
+  // Approved
+  { _id:'11', regId:'REG-CL-10231', role:'CL', name:'Manoj Kumar',     business:'Individual',     mobile:'+91 93210 98765', email:'manoj.kumar@email.com',    location:'BTM Layout',         city:'Bangalore', submittedOn:'2025-05-22T10:00:00', docs:6, totalDocs:6, status:'Approved' },
+  { _id:'12', regId:'REG-NC-10874', role:'NC', name:'AutoCare Pro',    business:'Company',        mobile:'+91 82109 87654', email:'info@autocare.com',        location:'Indiranagar',        city:'Bangalore', submittedOn:'2025-05-22T09:00:00', docs:7, totalDocs:7, status:'Approved' },
+  // Rejected
+  { _id:'13', regId:'REG-CL-10230', role:'CL', name:'Deepak Yadav',    business:'Individual',     mobile:'+91 71098 76543', email:'deepak.yadav@email.com',   location:'Marathahalli',       city:'Bangalore', submittedOn:'2025-05-21T11:00:00', docs:2, totalDocs:6, status:'Rejected' },
+]
+
+const ROLE_LABEL = { CL:'Car Cleaner', SU:'Supervisor', NC:'NCSP Partner', FR:'Franchise (CSP)', FS:'Steam Wash' }
+const ROLE_COLOR = { CL:'#2563eb', SU:'#059669', NC:'#7c3aed', FR:'#d97706', FS:'#0891b2' }
+const ROLE_BG    = { CL:'#eff6ff', SU:'#f0fdf4', NC:'#fdf4ff', FR:'#fff7ed', FS:'#f0fdfa' }
+const ROLE_ICON  = { CL:'🧹', SU:'👮', NC:'🏢', FR:'🏪', FS:'🚿' }
+
+// ── Partner Type Badge ────────────────────────────────────────────────────────
+function TypeBadge({ role }) {
+  return (
+    <span style={{ background:ROLE_BG[role]||'#f1f5f9', color:ROLE_COLOR[role]||'#64748b',
+      fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20, whiteSpace:'nowrap' }}>
+      {ROLE_LABEL[role] || role}
+    </span>
+  )
+}
+
+function StatusBadge({ status }) {
+  const map = {
+    Pending:  { bg:'#fff7ed', color:'#d97706' },
+    Approved: { bg:'#dcfce7', color:'#16a34a' },
+    Rejected: { bg:'#fee2e2', color:'#dc2626' },
+  }
+  const s = map[status] || { bg:'#f1f5f9', color:'#64748b' }
+  return <span style={{ background:s.bg, color:s.color, fontSize:11, fontWeight:600,
+    padding:'3px 10px', borderRadius:20, whiteSpace:'nowrap' }}>{status}</span>
+}
+
+// ── KPI Card ──────────────────────────────────────────────────────────────────
+function KpiCard({ icon, iconBg, label, value, sub }) {
+  return (
+    <div style={{ background:'#fff', border:'1px solid var(--border)',
+      borderRadius:'var(--radius-lg)', padding:'16px 18px',
+      boxShadow:'var(--shadow)', display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
+      <div style={{ width:44, height:44, borderRadius:12, background:iconBg, flexShrink:0,
+        display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>
+        {icon}
+      </div>
+      <div style={{ minWidth:0 }}>
+        <div style={{ fontSize:11, fontWeight:600, color:'var(--text2)',
+          textTransform:'uppercase', letterSpacing:'.05em', marginBottom:2 }}>{label}</div>
+        <div style={{ fontSize:22, fontWeight:700, color:'var(--text)', lineHeight:1, marginBottom:2 }}>{value}</div>
+        <div style={{ fontSize:11, color:'var(--text3)' }}>{sub}</div>
+      </div>
+    </div>
+  )
+}
+
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+function SkeletonRow({ cols }) {
+  return (
+    <tr>
+      {[...Array(cols)].map((_,i) => (
+        <td key={i} style={{ padding:14, borderBottom:'1px solid var(--border)' }}>
+          <div style={{ height:12, background:'#f1f5f9', borderRadius:4, width:i<2?100:'65%' }} />
+        </td>
+      ))}
+    </tr>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+export default function PartnerApprovals() {
+  const w = useWindowWidth()
+  const isMobile = w <= 768
+
+  const [allData,   setAllData]   = useState(MOCK_ALL)
+  const [loading,   setLoading]   = useState(true)
+  const [actionId,  setActionId]  = useState(null)
+
+  const [search,    setSearch]    = useState('')
+  const [typeF,     setTypeF]     = useState('')
+  const [statusF,   setStatusF]   = useState('')
+  const [activeTab, setActiveTab] = useState('all')
+  const [page,      setPage]      = useState(1)
+  const [dateF, setDateF] = useState('')
+  const perPage = 10
+
+  // Fetch all pending from all role types
+  const load = useCallback(() => {
+    setLoading(true)
+    Promise.all([
+      adminAPI.getUsers({ role:'CL', limit:100 }).catch(()=>null),
+      adminAPI.getUsers({ role:'SU', limit:100 }).catch(()=>null),
+      adminAPI.getUsers({ role:'NC', limit:100 }).catch(()=>null),
+      adminAPI.getUsers({ role:'FR', limit:100 }).catch(()=>null),
+      adminAPI.getUsers({ role:'FS', limit:100 }).catch(()=>null),
+    ]).then(([cl, su, nc, fr, fs]) => {
+      const merge = (res, role) =>
+        (res?.data?.data || [])
+          .filter(u => !u.isApproved || u.approvalStatus === 'Pending' || u.status === 'Pending')
+          .map(u => ({ ...u, role, regId: u.partnerId || `REG-${role}-${u._id?.slice(-5)}` }))
+
+      const combined = [
+        ...merge(cl,'CL'), ...merge(su,'SU'),
+        ...merge(nc,'NC'), ...merge(fr,'FR'), ...merge(fs,'FS'),
+      ]
+      if (combined.length > 0) setAllData(combined)
+      else setAllData(MOCK_ALL)
+    })
+    .catch(() => setAllData(MOCK_ALL))
+    .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const handleAction = async (id, role, action) => {
+    setActionId(id)
     try {
-      const r = await adminAPI.getPending();
-      const list = r.data?.data?.users || r.data?.data || [];
-      setPending(Array.isArray(list) ? list : []); 
-    } catch (err) { setPending([]); }
-    setLoading(false);
-  }, []);
+    if (action === 'Approved') {
+  await adminAPI.approveUser(id, {})
+} else {
+  await adminAPI.rejectUser(id, {
+    reason: 'Rejected by admin'
+  })
+}
+      // Update local state immediately
+      setAllData(prev => prev.map(p =>
+        p._id === id ? { ...p, status: action, isApproved: action === 'Approved' } : p
+      ))
+    } catch (err) {
+      alert(err?.response?.data?.message || `Failed to ${action.toLowerCase()}`)
+    } finally {
+      setActionId(null)
+    }
+  }
 
-  useEffect(() => { load(); }, [load]);
+  // Tab filter
+  const TAB_ROLE = { all:null, cleaners:'CL', supervisors:'SU', ncsp:'NC', franchise:'FR', steamwash:'FS' }
 
-  // ── 2. API: APPROVE PARTNER ──
-  const handleApprove = async (id) => {
-    if (!window.confirm("Approve this partner registration?")) return;
-    try {
-      await adminAPI.approveUser(id, { notes: 'Approved via Admin Panel' });
-      alert("Approved Successfully!");
-      load();
-    } catch (err) { alert("Approval failed"); }
-  };
+ const counts = {
+  all: allData.length,
+  cleaners: allData.filter(p => p.role === 'CL').length,
+  supervisors: allData.filter(p => p.role === 'SU').length,
+  ncsp: allData.filter(p => p.role === 'NC').length,
+  franchise: allData.filter(p => p.role === 'FR').length,
+  steamwash: allData.filter(p => p.role === 'FS').length,
+}
 
-  // ── 3. API: REJECT PARTNER ──
-  const handleReject = async (id) => {
-    const reason = window.prompt("Enter rejection reason:");
-    if (!reason) return;
-    try {
-      await adminAPI.rejectUser(id, { reason });
-      alert("Partner Rejected");
-      load();
-    } catch (err) { alert("Rejection failed"); }
-  };
+const totalPending = allData.filter(p => p.status === 'pending_approval').length
 
-  // ── Filtering Logic ──
-  const filtered = pending.filter(u => {
-    const matchesSearch = !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.mobileNo?.includes(search);
-    const matchesTab = activeTab === 'all' || u.role === activeTab;
-    return matchesSearch && matchesTab;
-  });
+  // Filter display data
+  const filtered = allData.filter(p => {
+    const q = search.toLowerCase()
+    const matchSearch = !q
+      || (p.name||'').toLowerCase().includes(q)
+      || (p.mobile||p.mobileNo||'').includes(q)
+      || (p.email||'').toLowerCase().includes(q)
+      || (p.regId||'').toLowerCase().includes(q)
+    const matchType   = !typeF   || p.role === typeF
+    const matchStatus = !statusF || p.status === statusF || (statusF==='Pending' && !p.status)
+    const matchDate = !dateF || ( (p.submittedOn || p.createdAt) && new Date(p.submittedOn || p.createdAt)
+    .toISOString()
+    .slice(0, 10) === dateF)
+    const matchTab    = activeTab === 'all' || p.role === TAB_ROLE[activeTab]
+   return matchSearch && matchType && matchStatus && matchDate && matchTab
+  })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage))
+  const rows = filtered.slice((page-1)*perPage, page*perPage)
+
+  const TABS = [
+    { key:'all',         label:`All Pending (${counts.all})`         },
+    { key:'cleaners',    label:`Car Cleaners (${counts.cleaners})`    },
+    { key:'supervisors', label:`Supervisors (${counts.supervisors})`  },
+    { key:'ncsp',        label:`NCSP Partners (${counts.ncsp})`       },
+    { key:'franchise',   label:`Franchise (CSP) (${counts.franchise})` },
+    { key:'steamwash',   label:`Steam Wash (${counts.steamwash})`     },
+  ]
+
+  const sel = {
+    padding:'8px 12px', border:'1px solid var(--border)', borderRadius:'var(--radius)',
+    fontSize:12, color:'var(--text)', background:'#fff', cursor:'pointer', outline:'none',
+  }
 
   return (
-    <div className="p-6 bg-[#f8fafc] min-h-screen font-sans">
-      
-      {/* ── HEADER ── */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight italic">Partner Approval Center</h1>
-          <nav className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-1">Dashboard &gt; Partner Approvals &gt; Pending Approvals</nav>
-        </div>
-        <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 shadow-sm"><Download size={14}/> Export</button>
-          <button className="flex items-center gap-2 px-5 py-2.5 bg-[#0047FF] text-white rounded-xl text-xs font-black shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all">+ Add Customer</button>
+    <div style={{ maxWidth:1400 }}>
+      {/* Page header */}
+      <div style={{ marginBottom:20 }}>
+        <h1 style={{ margin:0, fontSize:22, fontWeight:700, color:'var(--text)' }}>
+          Partner Approval Center
+        </h1>
+        <div style={{ fontSize:12, color:'var(--text3)', marginTop:4 }}>
+          Dashboard › Partner Approvals › Pending Approvals
         </div>
       </div>
 
-      {/* ── KPI SECTION (6 CARDS) ── */}
-      <div className="grid grid-cols-6 gap-4 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-        <Kpi label="Total Pending" value={pending.length} sub="All partner registrations" icon={Users} color="#6366f1" />
-        <Kpi label="Car Cleaners" value={pending.filter(u=>u.role==='CL').length} sub="25.5% of total" icon={Truck} color="#3b82f6" />
-        <Kpi label="Supervisors" value={pending.filter(u=>u.role==='SU').length} sub="17.0% of total" icon={UserCheck} color="#22c55e" />
-        <Kpi label="NCSP Partners" value={pending.filter(u=>u.role==='NC').length} sub="29.8% of total" icon={Building2} color="#a855f7" />
-        <Kpi label="Franchise (CSP)" value={pending.filter(u=>u.role==='FR').length} sub="19.1% of total" icon={Store} color="#f97316" />
-        <Kpi label="Steam Wash" value={pending.filter(u=>u.role==='FS').length} sub="8.5% of total" icon={Truck} color="#0d9488" />
+      {/* KPI Cards */}
+      <div style={{ display:'grid',
+        gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(6,1fr)',
+        gap:12, marginBottom:20 }}>
+        <KpiCard icon="👥" iconBg="#eff6ff" label="Total Pending"    value={totalPending} sub="All partner registrations" />
+        <KpiCard icon="🧹" iconBg={ROLE_BG.CL} label="Car Cleaners"  value={counts.cleaners}    sub={`${totalPending?((counts.cleaners/totalPending)*100).toFixed(1):0}% of total`} />
+        <KpiCard icon="👮" iconBg={ROLE_BG.SU} label="Supervisors"   value={counts.supervisors} sub={`${totalPending?((counts.supervisors/totalPending)*100).toFixed(1):0}% of total`} />
+        <KpiCard icon="🏢" iconBg={ROLE_BG.NC} label="NCSP Partners" value={counts.ncsp}        sub={`${totalPending?((counts.ncsp/totalPending)*100).toFixed(1):0}% of total`} />
+        <KpiCard icon="🏪" iconBg={ROLE_BG.FR} label="Franchise (CSP)" value={counts.franchise} sub={`${totalPending?((counts.franchise/totalPending)*100).toFixed(1):0}% of total`} />
+        <KpiCard icon="🚿" iconBg={ROLE_BG.FS} label="Steam Wash"    value={counts.steamwash}   sub={`${totalPending?((counts.steamwash/totalPending)*100).toFixed(1):0}% of total`} />
       </div>
 
-      {/* ── FILTERS BAR ── */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-wrap items-end gap-4 mb-6">
-        <div className="flex-1 min-w-[300px]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-            <input type="text" placeholder="Search by name, mobile, email or registration ID..." className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-100 outline-none placeholder:text-slate-300" value={search} onChange={(e)=>setSearch(e.target.value)} />
+      {/* Search + Filters */}
+      <div style={{ background:'#fff', border:'1px solid var(--border)',
+        borderRadius:'var(--radius-lg)', padding:'14px 16px',
+        boxShadow:'var(--shadow)', marginBottom:16 }}>
+        <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'flex-end' }}>
+          <div style={{ flex:1, minWidth:220 }}>
+            <div style={{ position:'relative' }}>
+              <span style={{ position:'absolute', left:9, top:'50%',
+                transform:'translateY(-50%)', color:'var(--text3)', fontSize:13 }}>🔍</span>
+              <input type="text" value={search}
+                onChange={e=>{setSearch(e.target.value);setPage(1)}}
+                placeholder="Search by name, mobile, email or registration ID…"
+                style={{ width:'100%', padding:'9px 10px 9px 30px', fontSize:12,
+                  border:'1px solid var(--border)', borderRadius:'var(--radius)',
+                  outline:'none', boxSizing:'border-box', color:'var(--text)' }} />
+            </div>
           </div>
+          <div>
+            <div style={lbl}>Partner Type</div>
+            <select value={typeF} onChange={e=>{setTypeF(e.target.value);setPage(1)}} style={sel}>
+              <option value="">All Types</option>
+              <option value="CL">Car Cleaner</option>
+              <option value="SU">Supervisor</option>
+              <option value="NC">NCSP Partner</option>
+              <option value="FR">Franchise (CSP)</option>
+              <option value="FS">Steam Wash</option>
+            </select>
+          </div>
+          <div>
+            <div style={lbl}>Status</div>
+            <select value={statusF} onChange={e=>{setStatusF(e.target.value);setPage(1)}} style={sel}>
+              <option value="">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          <div>
+            <div style={lbl}>Submitted On</div>
+            <input type="date" value={dateF} onChange={e => {
+            setDateF(e.target.value)
+            setPage(1)
+           }}
+           style={{ ...sel, color:'var(--text2)' }}/>
+          </div>
+          <button onClick={()=>{setSearch('');setTypeF('');setStatusF('')}}
+            style={{ padding:'9px 14px', border:'1px solid var(--border)',
+              borderRadius:'var(--radius)', background:'#fff',
+              fontSize:12, cursor:'pointer', color:'var(--text2)', alignSelf:'flex-end' }}>
+            ✕ Clear
+          </button>
         </div>
-        <select className="bg-slate-50 border-none rounded-xl px-3 py-2.5 text-xs font-bold text-slate-500 uppercase outline-none w-40 cursor-pointer">
-           <option>Partner Type</option>
-        </select>
-        <select className="bg-slate-50 border-none rounded-xl px-3 py-2.5 text-xs font-bold text-slate-500 uppercase outline-none w-40 cursor-pointer">
-           <option>All Status</option>
-        </select>
-        <button className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50"><Filter size={14}/> More Filters</button>
       </div>
 
-      {/* ── TABS ── */}
-      <div className="flex gap-6 mb-6 border-b border-slate-100">
-        {[
-          {id:'all', l:'All Pending', c:pending.length},
-          {id:'CL', l:'Car Cleaners', c:pending.filter(u=>u.role==='CL').length},
-          {id:'SU', l:'Supervisors', c:pending.filter(u=>u.role==='SU').length},
-          {id:'NC', l:'NCSP Partners', c:pending.filter(u=>u.role==='NC').length},
-        ].map(tab => (
-          <button key={tab.id} onClick={()=>setActiveTab(tab.id)} className={`pb-3 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
-            {tab.l} ({tab.c})
+      {/* Sub-tabs */}
+      <div style={{ display:'flex', gap:0, marginBottom:0,
+        borderBottom:'2px solid var(--border)', overflowX:'auto' }}>
+        {TABS.map(t => (
+          <button key={t.key} onClick={()=>{setActiveTab(t.key);setPage(1)}}
+            style={{ padding:'10px 18px', border:'none', borderBottom:'2px solid transparent',
+              marginBottom:-2, background:'transparent', fontSize:13, fontWeight:600,
+              cursor:'pointer', whiteSpace:'nowrap',
+              color:           activeTab===t.key ? 'var(--accent)' : 'var(--text2)',
+              borderBottomColor: activeTab===t.key ? 'var(--accent)' : 'transparent' }}>
+            {t.label}
           </button>
         ))}
       </div>
 
-      {/* ── DATA TABLE (9 COLUMNS) ── */}
-      <div className="bg-white border border-slate-100 rounded-[2.5rem] shadow-sm overflow-hidden border-b-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left min-w-[1300px]">
+      {/* Table */}
+      <div style={{ background:'#fff', border:'1px solid var(--border)',
+        borderTop:'none', borderRadius:'0 0 var(--radius-lg) var(--radius-lg)',
+        boxShadow:'var(--shadow)', overflow:'hidden' }}>
+        <div style={{ overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', minWidth:900 }}>
             <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-50 text-[10px] uppercase font-black text-slate-400 tracking-widest italic">
-                <th className="px-6 py-5">Registration ID</th>
-                <th className="px-6 py-5">Partner Type</th>
-                <th className="px-6 py-5">Name / Business</th>
-                <th className="px-6 py-5">Mobile / Email</th>
-                <th className="px-6 py-5">Location</th>
-                <th className="px-6 py-5">Submitted On</th>
-                <th className="px-6 py-5 text-center">Documents</th>
-                <th className="px-6 py-5 text-center">Status</th>
-                <th className="px-6 py-5 text-center">Actions</th>
+              <tr style={{ background:'#f8fafc' }}>
+                {['Registration ID','Partner Type','Name / Business','Mobile / Email',
+                  'Location','Submitted On','Documents','Status','Actions'].map(h => (
+                  <th key={h} style={{ padding:'12px 14px', textAlign:'left',
+                    fontSize:11, fontWeight:600, color:'var(--text3)',
+                    textTransform:'uppercase', letterSpacing:'.04em',
+                    borderBottom:'1px solid var(--border)', whiteSpace:'nowrap' }}>
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody className="text-[12px] text-slate-600 font-medium italic">
-              {loading ? (
-                <tr><td colSpan={9} className="py-24 text-center font-black animate-pulse italic text-slate-300">Syncing Requests...</td></tr>
-              ) : filtered.map((u, i) => (
-                <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all font-semibold">
-                  <td className="px-6 py-4 font-black text-blue-600 text-[11px] uppercase tracking-tighter italic">{u._id?.slice(-8).toUpperCase()}</td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest" style={{ background: `${ROLE_COLOR[u.role]}15`, color: ROLE_COLOR[u.role] }}>
-                      {ROLE_NAME[u.role] || u.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-slate-800 leading-tight uppercase italic">{u.name}</div>
-                    <div className="text-[10px] text-slate-400 font-black not-italic uppercase tracking-widest">Individual / Provider</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-slate-700 font-black tracking-tighter">{u.mobileNo}</div>
-                    <div className="text-[10px] text-slate-400 truncate w-32 not-italic">{u.email || 'No email registered'}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-slate-800 uppercase italic">Bangalore</div>
-                    <div className="text-[9px] text-slate-400 font-black not-italic">Green View Heights</div>
-                  </td>
-                  <td className="px-6 py-4 text-slate-500 italic leading-tight">
-                    {new Date(u.createdAt).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
-                    <div className="text-[10px] text-slate-300 font-black not-italic mt-0.5">{new Date(u.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                  </td>
-                  <td className="px-6 py-4 text-center font-black text-blue-600 uppercase italic">5/6</td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="px-3 py-1 rounded-full bg-orange-50 text-orange-500 text-[9px] font-black border border-orange-100 uppercase italic">Pending</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center gap-1.5 text-slate-300">
-                       <button onClick={()=>{setSelectedUser(u); setShowReviewModal(true)}} className="p-2 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Eye size={16}/></button>
-                       <button onClick={()=>handleApprove(u._id)} className="p-2 bg-green-50 text-green-600 rounded-lg border border-green-100 hover:bg-green-600 hover:text-white transition-all shadow-sm shadow-green-100"><Check size={16}/></button>
-                       <button onClick={()=>handleReject(u._id)} className="p-2 bg-red-50 text-red-500 rounded-lg border border-red-100 hover:bg-red-600 hover:text-white transition-all shadow-sm shadow-red-100"><X size={16}/></button>
-                       <button className="p-2"><MoreVertical size={16}/></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+            <tbody>
+              {loading
+                ? [...Array(8)].map((_,i) => <SkeletonRow key={i} cols={9} />)
+                : rows.length === 0
+                ? <tr><td colSpan={9} style={{ padding:48, textAlign:'center',
+                    color:'var(--text3)', fontSize:13 }}>No registrations found</td></tr>
+                : rows.map((p, i) => {
+                  const pid      = p._id || p.id
+                  const name     = p.name || p.businessName || '—'
+                  const business = p.business || (p.role==='CL'||p.role==='SU' ? 'Individual' : 'Company')
+                  const mobile   = p.mobileNo || p.mobile || '—'
+                  const email    = p.email || '—'
+                  const location = p.location || p.apartment?.name || '—'
+                  const city     = p.city || '—'
+                  const date     = p.submittedOn || p.createdAt
+                  const status   = p.status || 'Pending'
+                  const isLoading = actionId === pid
+
+                  return (
+                    <tr key={pid}
+                      style={{ borderBottom: i<rows.length-1?'1px solid var(--border)':'none' }}
+                      onMouseEnter={e => e.currentTarget.style.background='#f8fafc'}
+                      onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+
+                      {/* Reg ID */}
+                      <td style={{ padding:'13px 14px' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <div style={{ width:32, height:32, borderRadius:8, flexShrink:0,
+                            background:ROLE_BG[p.role]||'#f1f5f9',
+                            display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>
+                            {ROLE_ICON[p.role]||'👤'}
+                          </div>
+                          <span style={{ fontSize:12, fontWeight:700, color:'var(--accent)', whiteSpace:'nowrap' }}>
+                            {p.regId || pid?.slice(-8)?.toUpperCase()}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Partner Type */}
+                      <td style={{ padding:'13px 14px' }}>
+                        <TypeBadge role={p.role} />
+                      </td>
+
+                      {/* Name / Business */}
+                      <td style={{ padding:'13px 14px', whiteSpace:'nowrap' }}>
+                        <div style={{ fontSize:13, fontWeight:600 }}>{name}</div>
+                        <div style={{ fontSize:11, color:'var(--text3)' }}>{business}</div>
+                      </td>
+
+                      {/* Mobile / Email */}
+                      <td style={{ padding:'13px 14px', whiteSpace:'nowrap' }}>
+                        <div style={{ fontSize:13 }}>{mobile}</div>
+                        <div style={{ fontSize:11, color:'var(--text3)' }}>{email}</div>
+                      </td>
+
+                      {/* Location */}
+                      <td style={{ padding:'13px 14px', whiteSpace:'nowrap' }}>
+                        <div style={{ fontSize:13 }}>{location}</div>
+                        <div style={{ fontSize:11, color:'var(--text3)' }}>{city}</div>
+                      </td>
+
+                      {/* Submitted On */}
+                      <td style={{ padding:'13px 14px', whiteSpace:'nowrap' }}>
+                        <div style={{ fontSize:12 }}>
+                          {date ? new Date(date).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—'}
+                        </div>
+                        <div style={{ fontSize:11, color:'var(--text3)' }}>
+                          {date ? new Date(date).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : ''}
+                        </div>
+                      </td>
+
+                      {/* Documents */}
+                      <td style={{ padding:'13px 14px', textAlign:'center' }}>
+                        <span style={{
+                          fontSize:12, fontWeight:700,
+                          color: p.docs < p.totalDocs ? '#ea580c' : '#16a34a',
+                          background: p.docs < p.totalDocs ? '#fff7ed' : '#f0fdf4',
+                          padding:'3px 10px', borderRadius:20,
+                        }}>
+                          {p.docs || 0}/{p.totalDocs || 0}
+                        </span>
+                      </td>
+
+                      {/* Status */}
+                      <td style={{ padding:'13px 14px' }}>
+                        <StatusBadge status={status} />
+                      </td>
+
+                      {/* Actions */}
+                      <td style={{ padding:'13px 14px' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                          {/* View */}
+                          <button title="View Details"
+                            style={{ ...iBtn, color:'var(--text2)' }}>👁</button>
+
+                          {/* Approve — show for pending/unverified/not approved */}
+                          <button title="Approve"
+                            onClick={()=>handleAction(pid, p.role, 'Approved')}
+                            disabled={isLoading}
+                            style={{ ...iBtn, color:'#16a34a', background:'#f0fdf4',
+                              border:'1px solid #bbf7d0', opacity:isLoading?.5:1 }}>
+                            {isLoading ? '…' : '✓'}
+                          </button>
+
+                          {/* Reject */}
+                          <button title="Reject"
+                            onClick={()=>handleAction(pid, p.role, 'Rejected')}
+                            disabled={isLoading}
+                            style={{ ...iBtn, color:'#dc2626', background:'#fef2f2',
+                              border:'1px solid #fecaca', opacity:isLoading?.5:1 }}>
+                            {isLoading ? '…' : '✕'}
+                          </button>
+
+                          {/* More */}
+                          <button title="More" style={{ ...iBtn, color:'var(--text2)' }}>⋯</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
             </tbody>
           </table>
         </div>
-      </div>
-      
-      {/* Footer / Pagination */}
-      <div className="px-8 py-6 flex justify-between items-center text-slate-400 font-bold text-[11px] uppercase tracking-widest">
-         <span>Showing 1 to {filtered.length} of {pending.length} pending registrations</span>
-         <div className="flex items-center gap-2">
-            <button className="p-2 border border-slate-200 rounded-xl bg-white"><ChevronLeft size={16}/></button>
-            <span className="px-4 py-1.5 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-100">1</span>
-            <button className="p-2 border border-slate-200 rounded-xl bg-white hover:bg-slate-50"><ChevronRight size={16}/></button>
-         </div>
-      </div>
 
-      {/* ── REVIEW MODAL ── */}
-      {showReviewModal && selectedUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm font-black italic">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-10 shadow-2xl animate-in zoom-in duration-300">
-            <div className="flex justify-between items-center mb-8 uppercase tracking-tighter text-xl">
-               <h3>Application Review</h3>
-               <button onClick={()=>setShowReviewModal(false)}><X className="text-slate-300" size={28}/></button>
-            </div>
-            <div className="space-y-4 not-italic font-bold">
-               <div className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 shadow-inner">
-                  <label className="text-[10px] text-slate-300 uppercase block mb-1">Partner Name</label>
-                  <p className="text-xl text-slate-800 leading-none uppercase italic tracking-tighter">{selectedUser.name}</p>
-                  <p className="text-blue-600 text-xs mt-2 uppercase font-black">{ROLE_NAME[selectedUser.role] || selectedUser.role}</p>
-               </div>
-            </div>
-            <div className="flex gap-4 mt-10 uppercase tracking-widest text-[10px]">
-               <button onClick={()=>handleReject(selectedUser._id)} className="flex-1 py-5 bg-red-50 text-red-600 rounded-3xl font-black transition-all hover:bg-red-500 hover:text-white shadow-lg shadow-red-100">Reject Request</button>
-               <button onClick={()=>handleApprove(selectedUser._id)} className="flex-1 py-5 bg-[#0047FF] text-white rounded-3xl font-black shadow-xl shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all">Approve & Register</button>
-            </div>
+        {/* Pagination */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+          padding:'12px 16px', borderTop:'1px solid var(--border)', flexWrap:'wrap', gap:8 }}>
+          <span style={{ fontSize:12, color:'var(--text3)' }}>
+            Showing {Math.min((page-1)*perPage+1, filtered.length)}–{Math.min(page*perPage, filtered.length)} of {filtered.length} pending registrations
+          </span>
+          <div style={{ display:'flex', gap:4 }}>
+            <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}
+              style={{ ...pgBtn, opacity:page===1?.4:1 }}>‹</button>
+            {[...Array(Math.min(totalPages,5))].map((_,i)=>(
+              <button key={i+1} onClick={()=>setPage(i+1)}
+                style={{ ...pgBtn,
+                  background: page===i+1?'var(--accent)':'transparent',
+                  color:      page===i+1?'#fff':'var(--text)',
+                  border:     page===i+1?'1px solid var(--accent)':'1px solid var(--border)' }}>
+                {i+1}
+              </button>
+            ))}
+            {totalPages>5 && <span style={{ fontSize:13,color:'var(--text3)',alignSelf:'center' }}>…{totalPages}</span>}
+            <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}
+              style={{ ...pgBtn, opacity:page===totalPages?.4:1 }}>›</button>
           </div>
+          <select style={{ padding:'5px 10px', border:'1px solid var(--border)',
+            borderRadius:'var(--radius)', fontSize:12, cursor:'pointer', outline:'none' }}>
+            <option>10 / page</option><option>25 / page</option><option>50 / page</option>
+          </select>
         </div>
-      )}
+      </div>
     </div>
-  );
+  )
 }
 
-// ── KPI COMPONENT ──
-const Kpi = ({ label, value, sub, icon: Icon, color }) => (
-  <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col justify-between h-full min-h-[160px]">
-    <div className="flex justify-between items-start mb-4 font-black">
-      <div className="text-[10px] text-slate-400 uppercase tracking-widest leading-none">{label}</div>
-      <div className="p-2 rounded-xl" style={{ backgroundColor: `${color}10`, color }}> <Icon size={20} strokeWidth={2.5} /> </div>
-    </div>
-    <div className="text-3xl font-black text-slate-800 tracking-tighter leading-none mb-1">{value || 0}</div>
-    <div className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter italic leading-none">{sub}</div>
-  </div>
-);
+// ── Shared styles ─────────────────────────────────────────────────────────────
+const lbl   = { fontSize:10, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:4 }
+const iBtn  = { width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid var(--border)', borderRadius:6, cursor:'pointer', fontSize:13, background:'none' }
+const pgBtn = { width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', border:'1px solid var(--border)', borderRadius:6, fontSize:13, cursor:'pointer', background:'transparent', color:'var(--text)' }
