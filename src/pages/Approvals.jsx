@@ -189,7 +189,11 @@ const totalPending = allData.filter(p => p.status === 'pending_approval').length
       || (p.email||'').toLowerCase().includes(q)
       || (p.regId||'').toLowerCase().includes(q)
     const matchType   = !typeF   || p.role === typeF
-    const matchStatus = !statusF || p.status === statusF || (statusF==='Pending' && !p.status)
+    const pStatus = (p.status || '').toLowerCase()
+    const matchStatus = !statusF || 
+      (statusF==='Pending'  && (pStatus==='pending' || pStatus==='pending_approval')) ||
+      (statusF==='Approved' && (pStatus==='approved' || pStatus==='active')) ||
+      (statusF==='Rejected' && pStatus==='rejected')
     const matchDate = !dateF || ( (p.submittedOn || p.createdAt) && new Date(p.submittedOn || p.createdAt)
     .toISOString()
     .slice(0, 10) === dateF)
@@ -484,72 +488,120 @@ const totalPending = allData.filter(p => p.status === 'pending_approval').length
            </div>
 
       {selectedPartner && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,.55)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-          }}
-        >
-          <div
-            style={{
-              background: '#fff',
-              width: '90%',
-              maxWidth: 600,
-              borderRadius: 16,
-              padding: 24,
-              boxShadow: '0 20px 60px rgba(0,0,0,.25)',
-            }}
-          >
-            <div style={{
-              display:'flex',
-              justifyContent:'space-between',
-              alignItems:'center',
-              marginBottom:20
-            }}>
-              <h2 style={{ margin:0 }}>Partner Details</h2>
+  <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)',
+    display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:16 }}>
+    <div style={{ background:'#fff', width:'90%', maxWidth:560,
+      borderRadius:20, overflow:'hidden', boxShadow:'0 20px 60px rgba(0,0,0,.25)',
+      display:'flex', flexDirection:'column', maxHeight:'90vh' }}>
 
-              <button
-                onClick={() => setSelectedPartner(null)}
-                style={iBtn}
-              >
-                ✕
-              </button>
+      {/* Header */}
+      <div style={{ padding:'18px 24px', borderBottom:'1px solid var(--border)',
+        display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ width:44, height:44, borderRadius:12, flexShrink:0,
+            background:ROLE_BG[selectedPartner.role]||'#f1f5f9',
+            display:'flex', alignItems:'center', justifyContent:'center', fontSize:20 }}>
+            {ROLE_ICON[selectedPartner.role]||'👤'}
+          </div>
+          <div>
+            <div style={{ fontSize:16, fontWeight:700 }}>{selectedPartner.name || '—'}</div>
+            <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>
+              {selectedPartner.regId || selectedPartner._id?.slice(-8).toUpperCase()}
             </div>
-
-            <div style={{ display:'grid', gap:12 }}>
-              <div><b>Name:</b> {selectedPartner.name || '—'}</div>
-              <div><b>Role:</b> {selectedPartner.role || '—'}</div>
-              <div><b>Status:</b> {selectedPartner.status || '—'}</div>
-              <div><b>Mobile:</b> {selectedPartner.mobileNo || selectedPartner.mobile || '—'}</div>
-              <div><b>Email:</b> {selectedPartner.email || '—'}</div>
-              <div><b>City:</b> {selectedPartner.city || '—'}</div>
-              <div><b>Location:</b> {selectedPartner.location || selectedPartner.address || '—'}</div>
-              <div><b>Registration ID:</b> {selectedPartner.regId || '—'}</div>
-            </div>
-
-            <button
-              onClick={() => setSelectedPartner(null)}
-              style={{
-                marginTop:20,
-                padding:'10px 16px',
-                border:'none',
-                borderRadius:10,
-                background:'var(--accent)',
-                color:'#fff',
-                cursor:'pointer',
-                fontWeight:600
-              }}
-            >
-              Close
-            </button>
           </div>
         </div>
-      )}
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <TypeBadge role={selectedPartner.role} />
+          <button onClick={()=>setSelectedPartner(null)}
+            style={{ ...iBtn, fontSize:16 }}>✕</button>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ overflowY:'auto', padding:'20px 24px', flex:1 }}>
+
+        {/* Status Banner */}
+        <div style={{ marginBottom:20, padding:'10px 14px', borderRadius:10,
+          background: selectedPartner.status==='pending_approval'||selectedPartner.status==='Pending'
+            ? '#fff7ed' : selectedPartner.status==='active'||selectedPartner.status==='Approved'
+            ? '#f0fdf4' : '#fef2f2',
+          border: `1px solid ${selectedPartner.status==='pending_approval'||selectedPartner.status==='Pending'
+            ? '#fed7aa' : selectedPartner.status==='active'||selectedPartner.status==='Approved'
+            ? '#bbf7d0' : '#fecaca'}`,
+          display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ fontSize:13, fontWeight:600,
+            color: selectedPartner.status==='pending_approval'||selectedPartner.status==='Pending'
+              ? '#d97706' : selectedPartner.status==='active'||selectedPartner.status==='Approved'
+              ? '#16a34a' : '#dc2626' }}>
+            Status: {selectedPartner.status || '—'}
+          </span>
+          <StatusBadge status={selectedPartner.status} />
+        </div>
+
+        {/* Info Grid */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:20 }}>
+          {[
+            ['Mobile',          selectedPartner.mobileNo || selectedPartner.mobile],
+            ['Email',           selectedPartner.email],
+            ['City',            selectedPartner.city],
+            ['Location',        selectedPartner.location || selectedPartner.address],
+            ['Registration ID', selectedPartner.regId],
+            ['Submitted On',    selectedPartner.submittedOn || selectedPartner.createdAt
+              ? new Date(selectedPartner.submittedOn || selectedPartner.createdAt)
+                  .toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})
+              : null],
+          ].map(([label, value]) => (
+            <div key={label} style={{ background:'#f8fafc', borderRadius:10,
+              padding:'12px 14px', border:'1px solid var(--border)' }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'var(--text3)',
+                textTransform:'uppercase', letterSpacing:'.04em', marginBottom:4 }}>{label}</div>
+              <div style={{ fontSize:13, fontWeight:600, color:'var(--text)' }}>{value || '—'}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Documents */}
+        <div style={{ background:'#f8fafc', borderRadius:10, padding:'12px 14px',
+          border:'1px solid var(--border)', marginBottom:12 }}>
+          <div style={{ fontSize:11, fontWeight:600, color:'var(--text3)',
+            textTransform:'uppercase', letterSpacing:'.04em', marginBottom:6 }}>Documents</div>
+          <span style={{ fontSize:13, fontWeight:700,
+            color: (selectedPartner.docs||0) < (selectedPartner.totalDocs||0) ? '#ea580c' : '#16a34a',
+            background: (selectedPartner.docs||0) < (selectedPartner.totalDocs||0) ? '#fff7ed' : '#f0fdf4',
+            padding:'3px 12px', borderRadius:20 }}>
+            {selectedPartner.docs || 0}/{selectedPartner.totalDocs || 0} Submitted
+          </span>
+        </div>
+      </div>
+
+      {/* Footer Actions */}
+      <div style={{ padding:'16px 24px', borderTop:'1px solid var(--border)',
+        display:'flex', gap:10, justifyContent:'flex-end' }}>
+        <button onClick={()=>setSelectedPartner(null)}
+          style={{ padding:'9px 20px', border:'1px solid var(--border)',
+            borderRadius:8, background:'#fff', fontSize:13, cursor:'pointer' }}>
+          Close
+        </button>
+        {(selectedPartner.status==='pending_approval'||selectedPartner.status==='Pending'||selectedPartner.status==='pending') && (
+          <>
+            <button onClick={()=>{ handleAction(selectedPartner._id, selectedPartner.role, 'Rejected'); setSelectedPartner(null) }}
+              style={{ padding:'9px 20px', border:'1px solid #fecaca',
+                borderRadius:8, background:'#fef2f2', fontSize:13,
+                fontWeight:600, color:'#dc2626', cursor:'pointer' }}>
+              ✕ Reject
+            </button>
+            <button onClick={()=>{ handleAction(selectedPartner._id, selectedPartner.role, 'Approved'); setSelectedPartner(null) }}
+              style={{ padding:'9px 24px', border:'none',
+                borderRadius:8, background:'var(--accent)', fontSize:13,
+                fontWeight:600, color:'#fff', cursor:'pointer' }}>
+              ✓ Approve
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
     </div>
   )

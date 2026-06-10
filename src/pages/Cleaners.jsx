@@ -1,135 +1,499 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { adminAPI } from '../services/api';
-import { 
-  Truck, CheckCircle, Clock, Timer, AlertCircle, 
-  Search, Download, Plus, Eye, Edit, MoreVertical, 
-  ChevronLeft, ChevronRight, X, Star, MapPin, 
-  Phone, Mail, Calendar, Briefcase, Filter, Trash2, Camera, User, Save, BarChart3
-} from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { adminAPI } from '../services/api'
 
-const getInitials = (name = '') => name?.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase() || 'CL';
+function getInitials(name = '') {
+  return name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()
+}
+const COLORS = ['#2563eb','#7c3aed','#db2777','#059669','#ea580c','#0891b2','#be185d','#9333ea','#16a34a','#dc2626']
+function colorFor(s = '') {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = s.charCodeAt(i) + ((h << 5) - h)
+  return COLORS[Math.abs(h) % COLORS.length]
+}
 
-export default function Cleaners() {
-  const [cleaners, setCleaners] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedCleaner, setSelectedCleaner] = useState(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  
-  // Photo & Form States
-  const [imagePreview, setImagePreview] = useState(null);
-  const fileInputRef = useRef(null);
-  const [formData, setFormData] = useState({ 
-    name: '', mobile: '', email: '', dob: '', address: '', 
-    cleanerType: 'Full Time', supervisor: '', apartments: '', cars: '' 
-  });
+// ── Badge ─────────────────────────────────────────────────────────────────────
+function Badge({ status }) {
+  const map = {
+    active:           { bg:'#dcfce7', color:'#16a34a' },
+    Active:           { bg:'#dcfce7', color:'#16a34a' },
+    inactive:         { bg:'#fee2e2', color:'#dc2626' },
+    Inactive:         { bg:'#fee2e2', color:'#dc2626' },
+    pending_approval: { bg:'#fff7ed', color:'#d97706' },
+    Pending:          { bg:'#fff7ed', color:'#d97706' },
+  }
+  const s = map[status] || { bg:'#f1f5f9', color:'#64748b' }
+  const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : '—'
+  return (
+    <span style={{ background:s.bg, color:s.color, fontSize:11, fontWeight:600,
+      padding:'3px 10px', borderRadius:20, whiteSpace:'nowrap' }}>
+      {label === 'Pending_approval' ? 'Pending' : label}
+    </span>
+  )
+}
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await adminAPI.getUsers({ role: 'CL', limit: 10 });
-      const data = res.data?.data?.users || res.data?.data || [];
-      setCleaners(data);
-    } catch (err) { console.error(err); }
-    setLoading(false);
-  }, []);
+// ── Avatar ────────────────────────────────────────────────────────────────────
+function Avatar({ name, id, photo, size=38 }) {
+  const color = colorFor(id || name)
+  if (photo) return (
+    <img src={photo} alt={name}
+      style={{ width:size, height:size, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+  )
+  return (
+    <div style={{ width:size, height:size, borderRadius:'50%', flexShrink:0,
+      background:`${color}18`, border:`1.5px solid ${color}30`,
+      display:'flex', alignItems:'center', justifyContent:'center',
+      fontSize:size*0.3, fontWeight:700, color }}>
+      {getInitials(name)}
+    </div>
+  )
+}
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+// ── KPI Card ──────────────────────────────────────────────────────────────────
+function KpiCard({ icon, iconBg, label, value, sub, subColor, loading }) {
+  return (
+    <div style={{ background:'#fff', border:'1px solid var(--border)',
+      borderRadius:'var(--radius-lg)', padding:'18px 20px',
+      boxShadow:'var(--shadow)', display:'flex', alignItems:'center', gap:14 }}>
+      <div style={{ width:50, height:50, borderRadius:14, background:iconBg, flexShrink:0,
+        display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 }}>
+        {icon}
+      </div>
+      <div>
+        <div style={{ fontSize:11, fontWeight:600, color:'var(--text2)',
+          textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4 }}>{label}</div>
+        <div style={{ fontSize:24, fontWeight:700, color:'var(--text)', lineHeight:1, marginBottom:4 }}>
+          {loading ? '—' : value}
+        </div>
+        {sub && <div style={{ fontSize:11, color:subColor||'var(--text3)', fontWeight:500 }}>{sub}</div>}
+      </div>
+    </div>
+  )
+}
 
-  const handlePhotoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => setImagePreview(event.target.result);
-      reader.readAsDataURL(file);
-    }
-  };
+// ── Skeleton Row ──────────────────────────────────────────────────────────────
+function SkeletonRow({ cols }) {
+  return (
+    <tr>
+      {[...Array(cols)].map((_,i) => (
+        <td key={i} style={{ padding:14, borderBottom:'1px solid var(--border)' }}>
+          <div style={{ height:12, background:'#f1f5f9', borderRadius:4, width:i<2?120:'65%' }} />
+        </td>
+      ))}
+    </tr>
+  )
+}
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const payload = {
-        ...formData,
-        role: 'CL',
-        password: "Cleaner@123",
-        profilePhoto: imagePreview
-      };
-      await adminAPI.createInternal(payload);
-      setShowAddModal(false);
-      setImagePreview(null);
-      fetchData();
-      alert("Cleaner Registered Successfully!");
-    } catch (err) { 
-      alert(`FAILED: ${err.response?.data?.message || "Validation failed"}`); 
-    }
-    setSubmitting(false);
-  };
+// ── Detail Panel ──────────────────────────────────────────────────────────────
+function DetailPanel({ c, onClose }) {
+  const [tab, setTab] = useState('overview')
+  const color = colorFor(c._id || c.name)
 
   return (
-    <div className="flex h-screen bg-[#f8fafc] overflow-hidden font-sans">
-      
-      {/* ── LEFT MAIN SECTION ── */}
-      <div className={`flex-1 overflow-auto p-6 transition-all duration-300 ${selectedCleaner ? 'mr-[420px]' : ''}`}>
-        
-        <div className="flex justify-between items-start mb-8 font-black">
-          <div>
-            <h1 className="text-2xl text-slate-800 tracking-tight italic uppercase leading-none">Car Cleaner Management</h1>
-            <nav className="text-slate-400 text-[10px] uppercase tracking-widest mt-2">Dashboard &gt; Car Cleaners</nav>
+    <div style={{ width:340, flexShrink:0, background:'#fff',
+      border:'1px solid var(--border)', borderRadius:'var(--radius-lg)',
+      boxShadow:'0 4px 24px rgba(0,0,0,.1)', display:'flex',
+      flexDirection:'column', overflow:'hidden' }}>
+
+      {/* Header */}
+      <div style={{ padding:'16px 18px', borderBottom:'1px solid var(--border)',
+        display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <span style={{ fontSize:14, fontWeight:700 }}>Cleaner Details</span>
+        <button onClick={onClose} style={{ background:'none', border:'none',
+          fontSize:18, cursor:'pointer', color:'var(--text3)' }}>✕</button>
+      </div>
+
+      {/* Identity */}
+      <div style={{ padding:'16px 18px', borderBottom:'1px solid var(--border)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:8 }}>
+          <Avatar name={c.name} id={c._id} photo={c.profilePhoto} size={52} />
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:2 }}>
+              <span style={{ fontSize:14, fontWeight:700 }}>{c.name}</span>
+              <Badge status={c.status || 'active'} />
+            </div>
+            <div style={{ fontSize:12, color:'var(--text3)' }}>
+              {c.partnerId || c._id?.slice(-8)?.toUpperCase() || 'Pending'}
+            </div>
+            <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
+              {c.cleanerType || 'Full Time'} Cleaner
+            </div>
           </div>
-          <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-6 py-2.5 bg-[#0047FF] text-white rounded-xl text-xs font-black shadow-xl shadow-blue-100 hover:bg-blue-700 transition-all uppercase italic tracking-wider">
-            <Plus size={18}/> Add Cleaner
+        </div>
+        <div style={{ fontSize:12, color:'#f59e0b' }}>
+          ★ {c.rating?.toFixed(1) || '4.8'} <span style={{ color:'var(--text3)' }}>(156 Ratings)</span>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display:'flex', borderBottom:'1px solid var(--border)', overflowX:'auto' }}>
+        {['Overview','Documents','Earnings','Activity'].map(t => (
+          <button key={t} onClick={() => setTab(t.toLowerCase())}
+            style={{ padding:'10px 14px', border:'none', borderBottom:'2px solid transparent',
+              marginBottom:-1, background:'transparent', fontSize:12, fontWeight:600,
+              cursor:'pointer', whiteSpace:'nowrap',
+              color:           tab===t.toLowerCase() ? 'var(--accent)' : 'var(--text2)',
+              borderBottomColor: tab===t.toLowerCase() ? 'var(--accent)' : 'transparent' }}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex:1, overflowY:'auto', padding:'16px 18px' }}>
+        {tab === 'overview' ? (
+          <>
+            <Sec title="Personal Information">
+              <Row label="Mobile"  value={c.mobileNo || c.mobile || '—'} />
+              <Row label="Email"   value={c.email || '—'} small />
+              <Row label="DOB"     value={c.dob || '—'} />
+              <Row label="Address" value={c.address || '—'} small />
+            </Sec>
+            <Sec title="Work Information">
+              <Row label="Type"          value={c.cleanerType || 'Full Time'} />
+              <Row label="Supervisor"    value={c.supervisor || '—'} />
+              <Row label="Apartments"    value={c.apartments || '—'} />
+              <Row label="Assigned Cars" value={c.assignedCars || '—'} />
+            </Sec>
+            <Sec title="Performance">
+              <Row label="Total Cleanings" value={c.totalCleanings || '—'} />
+              <Row label="This Month"      value={c.monthCleanings || '—'} />
+              <Row label="Rating"          value={c.rating ? `${c.rating.toFixed(1)} ★` : '4.8 ★'} />
+            </Sec>
+          </>
+        ) : (
+          <div style={{ color:'var(--text3)', fontSize:13, textAlign:'center', padding:'32px 0' }}>
+            {tab.charAt(0).toUpperCase()+tab.slice(1)} coming soon
+          </div>
+        )}
+      </div>
+
+      <div style={{ padding:'12px 18px', borderTop:'1px solid var(--border)' }}>
+        <button style={{ width:'100%', padding:'10px', background:'var(--accent)',
+          border:'none', borderRadius:'var(--radius)', fontSize:13,
+          fontWeight:600, color:'#fff', cursor:'pointer' }}>
+          View Full Profile
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Sec({ title, children }) {
+  return (
+    <div style={{ marginBottom:18 }}>
+      <div style={{ fontSize:11, fontWeight:700, color:'var(--text)', textTransform:'uppercase',
+        letterSpacing:'.04em', marginBottom:8, paddingBottom:4, borderBottom:'1px solid var(--border)' }}>
+        {title}
+      </div>
+      {children}
+    </div>
+  )
+}
+function Row({ label, value, small }) {
+  return (
+    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', padding:'5px 0', gap:8 }}>
+      <span style={{ fontSize:12, color:'var(--text3)', flexShrink:0 }}>{label}</span>
+      <span style={{ fontSize:small?11:13, fontWeight:600, textAlign:'right', color:'var(--text)' }}>{value}</span>
+    </div>
+  )
+}
+
+// ── Add Cleaner Modal ─────────────────────────────────────────────────────────
+function AddCleanerModal({ onClose, onSuccess }) {
+  const EMPTY = { name:'', mobile:'', email:'', dob:'', address:'', supervisor:'', cleanerType:'Full Time' }
+  const [form,      setForm]      = useState(EMPTY)
+  const [saving,    setSaving]    = useState(false)
+  const [errors,    setErrors]    = useState({})
+  const [success,   setSuccess]   = useState(false)
+  const [imgPreview, setImgPreview] = useState(null)
+  const fileRef = useRef(null)
+
+  const set = (k, v) => { setForm(p=>({...p,[k]:v})); setErrors(p=>({...p,[k]:''})) }
+
+  const validate = () => {
+    const e = {}
+    if (!form.name.trim())           e.name   = 'Required'
+    if (form.mobile.length < 10)     e.mobile = 'Valid 10-digit number required'
+    return e
+  }
+
+  const handleSubmit = async () => {
+    const e = validate()
+    if (Object.keys(e).length > 0) { setErrors(e); return }
+    setSaving(true); setErrors({})
+    try {
+      await adminAPI.createCleaner({
+      mobileNo:form.mobile.replace(/\D/g,''),
+      name:form.name,
+      profilePhoto: imgPreview,
+      })
+      setSuccess(true)
+      setTimeout(() => { onSuccess?.(); onClose() }, 1500)
+    } catch (err) {
+      setErrors({ submit: err?.response?.data?.message || 'Failed to create cleaner.' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:300,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+      <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:560,
+        maxHeight:'90vh', overflow:'hidden', display:'flex', flexDirection:'column',
+        boxShadow:'0 24px 64px rgba(0,0,0,.2)' }}>
+
+        {/* Header */}
+        <div style={{ padding:'20px 24px', borderBottom:'1px solid var(--border)',
+          display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <div>
+            <h2 style={{ margin:0, fontSize:17, fontWeight:700 }}>Register New Cleaner</h2>
+            <p style={{ margin:'2px 0 0', fontSize:12, color:'var(--text3)' }}>Add a new car cleaner</p>
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'var(--text3)' }}>✕</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ overflowY:'auto', padding:'20px 24px', flex:1 }}>
+          {success && <div style={{ background:'#f0fdf4', color:'#16a34a', padding:'10px', borderRadius:8, marginBottom:10, fontSize:13 }}>✅ Cleaner registered successfully!</div>}
+          {errors.submit && <div style={{ background:'#fef2f2', color:'#dc2626', padding:'10px', borderRadius:8, marginBottom:10, fontSize:13 }}>⚠ {errors.submit}</div>}
+
+          {/* Photo Upload */}
+          <div style={{ display:'flex', justifyContent:'center', marginBottom:20 }}>
+            <div style={{ textAlign:'center' }}>
+              <div onClick={() => fileRef.current?.click()}
+                style={{ width:80, height:80, borderRadius:16, background:'#f1f5f9',
+                  border:'2px dashed #cbd5e1', display:'flex', alignItems:'center',
+                  justifyContent:'center', cursor:'pointer', overflow:'hidden',
+                  margin:'0 auto 8px' }}>
+                {imgPreview
+                  ? <img src={imgPreview} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                  : <span style={{ fontSize:28 }}>📷</span>}
+              </div>
+              <input type="file" ref={fileRef} accept="image/*" style={{ display:'none' }}
+                onChange={e => {
+  const f = e.target.files[0]
+  if (f) {
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const MAX = 200
+        const ratio = Math.min(MAX/img.width, MAX/img.height)
+        canvas.width  = img.width  * ratio
+        canvas.height = img.height * ratio
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+        setImgPreview(canvas.toDataURL('image/jpeg', 0.7))
+      }
+      img.src = ev.target.result
+    }
+    reader.readAsDataURL(f)
+  }
+}} />
+              <div style={{ fontSize:11, color:'var(--text3)' }}>Upload Photo</div>
+            </div>
+          </div>
+
+          <div style={secStyle}>Personal Information</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+            <div style={{ gridColumn:'1/-1' }}>
+              <FF label="Full Name" fieldKey="name" value={form.name} error={errors.name} onChange={set} required />
+            </div>
+            <FF label="Mobile Number" fieldKey="mobile" type="tel" value={form.mobile} error={errors.mobile} onChange={set} maxLen={10} required />
+            <FF label="Email" fieldKey="email" type="email" value={form.email} onChange={set} />
+            <FF label="Date of Birth" fieldKey="dob" value={form.dob} onChange={set} placeholder="DD/MM/YYYY" />
+            <div style={{ gridColumn:'1/-1' }}>
+              <label style={lbStyle}>Address</label>
+              <textarea value={form.address} onChange={e=>set('address',e.target.value)}
+                style={inStyle} rows={2} placeholder="Full address" />
+            </div>
+          </div>
+
+          <div style={secStyle}>Work Information</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+            <div>
+              <label style={lbStyle}>Cleaner Type</label>
+              <select value={form.cleanerType} onChange={e=>set('cleanerType',e.target.value)} style={inStyle}>
+                <option>Full Time</option>
+                <option>Part Time</option>
+              </select>
+            </div>
+            <FF label="Supervisor Name" fieldKey="supervisor" value={form.supervisor} onChange={set} placeholder="e.g. Suresh Yadav" />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding:'16px 24px', borderTop:'1px solid var(--border)',
+          display:'flex', gap:10, justifyContent:'flex-end' }}>
+          <button onClick={onClose} disabled={saving}
+            style={{ padding:'9px 20px', border:'1px solid var(--border)',
+              borderRadius:8, background:'#fff', fontSize:13, cursor:'pointer' }}>Cancel</button>
+          <button onClick={handleSubmit} disabled={saving||success}
+            style={{ padding:'9px 24px', background:'var(--accent)', border:'none',
+              borderRadius:8, fontSize:13, fontWeight:600, color:'#fff', cursor:'pointer' }}>
+            {saving ? '⏳ Saving…' : '+ Add Cleaner'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FF({ label, fieldKey, type='text', placeholder='', maxLen, required, value, error, onChange }) {
+  return (
+    <div>
+      <label style={lbStyle}>{label}{required && <span style={{ color:'#dc2626' }}> *</span>}</label>
+      <input type={type} value={value} placeholder={placeholder} maxLength={maxLen}
+        onChange={e => onChange(fieldKey, type==='tel' ? e.target.value.replace(/\D/g,'') : e.target.value)}
+        style={{ ...inStyle, borderColor:error?'#fca5a5':'#d1d5db' }} />
+      {error && <div style={{ fontSize:11, color:'#dc2626', marginTop:3 }}>{error}</div>}
+    </div>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+export default function Cleaners() {
+  const [cleaners,  setCleaners]  = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [selected,  setSelected]  = useState(null)
+  const [showAdd,   setShowAdd]   = useState(false)
+  const [search,    setSearch]    = useState('')
+  const [filter,    setFilter]    = useState('All')
+  const [meta,      setMeta]      = useState({ total:0 })
+
+  const load = useCallback(() => {
+    setLoading(true)
+    adminAPI.getUsers({ role:'CL', limit:100 })
+      .then(res => {
+        const all = res.data?.data || []
+        setCleaners(all)
+        setMeta({ total: all.length })
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const displayed = cleaners.filter(c => {
+    const q = search.toLowerCase()
+    const matchSearch = !q ||
+      (c.name||'').toLowerCase().includes(q) ||
+      (c.mobileNo||c.mobile||'').includes(q) ||
+      (c.partnerId||'').toLowerCase().includes(q)
+    const cStatus = (c.status||'').toLowerCase()
+    const matchFilter =
+      filter === 'All' ||
+      (filter === 'Active'   && (cStatus==='active')) ||
+      (filter === 'Pending'  && (cStatus==='pending_approval'||cStatus==='pending')) ||
+      (filter === 'Inactive' && cStatus==='inactive')
+    return matchSearch && matchFilter
+  })
+
+  const activeCount  = cleaners.filter(c => c.status==='active').length
+  const pendingCount = cleaners.filter(c => c.status==='pending_approval'||c.status==='pending').length
+
+  return (
+    <div style={{ display:'flex', gap:16 }}>
+      <div style={{ flex:1, minWidth:0 }}>
+
+        {/* Page Header */}
+        <div style={{ marginBottom:20 }}>
+          <h1 style={{ margin:0, fontSize:22, fontWeight:700 }}>Car Cleaner Management</h1>
+          <div style={{ fontSize:12, color:'var(--text3)' }}>Dashboard › Car Cleaners</div>
+        </div>
+
+        {/* KPI Cards */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
+          <KpiCard icon="🧹" iconBg="#eff6ff" label="Total"    value={meta.total}    loading={loading} sub="All cleaners" />
+          <KpiCard icon="✅" iconBg="#f0fdf4" label="Active"   value={activeCount}   loading={loading} />
+          <KpiCard icon="⏳" iconBg="#fff7ed" label="Pending"  value={pendingCount}  loading={loading} />
+          <KpiCard icon="⭐" iconBg="#fefce8" label="Avg Rating" value="4.8"         loading={false}   sub="Overall" />
+        </div>
+
+        {/* Add Button */}
+        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}>
+          <button onClick={()=>setShowAdd(true)}
+            style={{ padding:'9px 18px', background:'var(--accent)', color:'#fff',
+              borderRadius:8, fontWeight:600, fontSize:13, cursor:'pointer', border:'none' }}>
+            + Add Cleaner
           </button>
         </div>
 
-        {/* KPI Row */}
-        <div className="grid grid-cols-5 gap-4 mb-8">
-          <Kpi icon={Truck} label="Total" value="2,456" sub="↑ 8.6%" color="#2563eb" />
-          <Kpi icon={CheckCircle} label="Active" value="2,102" sub="85.6%" color="#16a34a" />
-          <Kpi icon={AlertCircle} label="Pending" value="24" sub="12.5%" color="#ef4444" />
-          <Kpi icon={Timer} label="Part Time" value="1,245" sub="50.7%" color="#f59e0b" />
-          <Kpi icon={Briefcase} label="Full Time" value="857" sub="34.9%" color="#7c3aed" />
+        {showAdd && <AddCleanerModal onClose={()=>setShowAdd(false)} onSuccess={load} />}
+
+        {/* Search + Filter */}
+        <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
+          <div style={{ position:'relative', flex:1, minWidth:200 }}>
+            <span style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text3)' }}>🔍</span>
+            <input type="text" value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="Search by name, mobile, ID..."
+              style={{ width:'100%', padding:'9px 12px 9px 32px', fontSize:12,
+                border:'1px solid var(--border)', borderRadius:8, outline:'none', boxSizing:'border-box' }} />
+          </div>
+          {['All','Active','Pending','Inactive'].map(f => (
+            <button key={f} onClick={()=>setFilter(f)}
+              style={{ padding:'8px 16px', borderRadius:8, fontSize:12, fontWeight:600,
+                cursor:'pointer', border:'1px solid var(--border)',
+                background: filter===f ? 'var(--accent)' : '#fff',
+                color:      filter===f ? '#fff' : 'var(--text2)' }}>
+              {f}
+            </button>
+          ))}
         </div>
 
-        {/* DATA TABLE (10 COLUMNS) */}
-        <div className="bg-white border border-slate-100 rounded-[2.5rem] shadow-sm overflow-hidden border-b-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left min-w-[1400px]">
+        {/* Table */}
+        <div style={{ background:'#fff', border:'1px solid var(--border)',
+          borderRadius:'var(--radius-lg)', boxShadow:'var(--shadow)', overflow:'hidden' }}>
+          <div style={{ overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', minWidth:900 }}>
               <thead>
-                <tr className="bg-slate-50/50 border-b border-slate-50 text-[10px] uppercase font-black text-slate-400 tracking-widest italic">
-                  <th className="px-6 py-5">Cleaner ID</th>
-                  <th className="px-6 py-5">Name</th>
-                  <th className="px-6 py-5">Mobile</th>
-                  <th className="px-6 py-5">Type</th>
-                  <th className="px-6 py-5 text-center">Apartments</th>
-                  <th className="px-6 py-5 text-center">Cars</th>
-                  <th className="px-6 py-5">Supervisor</th>
-                  <th className="px-6 py-5">Rating</th>
-                  <th className="px-6 py-5 text-center">Status</th>
-                  <th className="px-6 py-5 text-center">Actions</th>
+                <tr style={{ background:'#f8fafc' }}>
+                  {['Cleaner ID','Name','Mobile','Type','Supervisor','Rating','Status','Actions'].map(h => (
+                    <th key={h} style={{ padding:14, textAlign:'left', fontSize:11,
+                      textTransform:'uppercase', color:'var(--text3)', fontWeight:600,
+                      letterSpacing:'.04em', borderBottom:'1px solid var(--border)' }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="text-[12px] text-slate-600 font-medium">
-                {loading ? (
-                  <tr><td colSpan={10} className="py-24 text-center animate-pulse italic">Syncing Database...</td></tr>
-                ) : cleaners.map((c, i) => (
-                  <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50 transition-all group">
-                    <td className="px-6 py-4 font-black text-blue-600 text-[11px] uppercase">{c.partnerId || 'Pending'}</td>
-                    <td className="px-6 py-4 flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center overflow-hidden font-black text-blue-600 text-[10px]">
-                        {c.profilePhoto ? <img src={c.profilePhoto} className="w-full h-full object-cover" /> : getInitials(c.name)}
-                      </div>
-                      <span className="font-bold text-slate-800">{c.name}</span>
+              <tbody>
+                {loading ? <SkeletonRow cols={8} /> :
+                 displayed.length === 0 ? (
+                  <tr><td colSpan={8} style={{ padding:48, textAlign:'center', color:'var(--text3)', fontSize:13 }}>
+                    No cleaners found
+                  </td></tr>
+                 ) : displayed.map(c => (
+                  <tr key={c._id} style={{ borderBottom:'1px solid var(--border)' }}
+                    onMouseEnter={e=>e.currentTarget.style.background='#f8fafc'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <td style={{ padding:14, fontSize:12, fontWeight:700, color:'var(--accent)' }}>
+                      {c.partnerId || 'Pending'}
                     </td>
-                    <td className="px-6 py-4 font-bold text-slate-500">{c.mobileNo || c.mobile}</td>
-                    <td className="px-6 py-4 italic"><span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-[9px] font-black uppercase tracking-wider italic">{c.cleanerType || 'Full Time'}</span></td>
-                    <td className="px-6 py-4 text-center">{c.apartments || '3'}</td>
-                    <td className="px-6 py-4 text-center font-black">{c.assignedCars || '20'}</td>
-                    <div className="text-[11px] font-black text-slate-700">{c.supervisor || '—'}</div>
-                    <td className="px-6 py-4 text-amber-500 font-black flex items-center gap-1"><Star size={12} fill="currentColor"/> 4.8</td>
-                    <td className="px-6 py-4 text-center"><span className="px-3 py-1 rounded-full bg-green-50 text-green-600 text-[10px] font-black border border-green-100 uppercase italic">Active</span></td>
-                    <td className="px-6 py-4 text-center">
-                       <button onClick={() => setSelectedCleaner(c)} className="p-2 text-slate-300 hover:text-blue-600 transition-all"><Eye size={18}/></button>
+                    <td style={{ padding:14 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <Avatar name={c.name} id={c._id} photo={c.profilePhoto} />
+                        <span style={{ fontSize:13, fontWeight:600 }}>{c.name}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding:14, fontSize:12, color:'var(--text2)' }}>{c.mobileNo || c.mobile || '—'}</td>
+                    <td style={{ padding:14 }}>
+                      <span style={{ background:'#eff6ff', color:'#2563eb', fontSize:11,
+                        fontWeight:600, padding:'3px 10px', borderRadius:20 }}>
+                        {c.cleanerType || 'Full Time'}
+                      </span>
+                    </td>
+                    <td style={{ padding:14, fontSize:12 }}>{c.supervisor || '—'}</td>
+                    <td style={{ padding:14, fontSize:12, color:'#f59e0b', fontWeight:600 }}>
+                      ★ {c.rating?.toFixed(1) || '4.8'}
+                    </td>
+                    <td style={{ padding:14 }}><Badge status={c.status || 'active'} /></td>
+                    <td style={{ padding:14 }}>
+                      <button onClick={()=>setSelected(c)}
+                        style={{ background:'none', border:'1px solid var(--border)',
+                          borderRadius:6, width:30, height:30, cursor:'pointer', fontSize:13 }}>
+                        👁
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -139,140 +503,13 @@ export default function Cleaners() {
         </div>
       </div>
 
-      {/* ── RIGHT DETAILS SIDEBAR (REPLICATING SCREENSHOT) ── */}
-      {selectedCleaner && (
-        <aside className="fixed right-0 top-0 w-[420px] h-screen bg-white shadow-2xl z-[100] border-l border-slate-100 flex flex-col animate-in slide-in-from-right duration-300 italic font-black">
-          <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-            <h3 className="text-slate-800 uppercase text-xs tracking-widest">Cleaner Details</h3>
-            <button onClick={() => setSelectedCleaner(null)} className="p-2 text-slate-300 hover:text-slate-800 focus:outline-none"><X size={24}/></button>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar scroll-smooth">
-            <div className="flex items-center gap-5">
-              <div className="w-20 h-20 rounded-[2.5rem] bg-blue-600 text-white text-2xl flex items-center justify-center font-black overflow-hidden shadow-xl border-2 border-white">
-                {selectedCleaner.profilePhoto ? <img src={selectedCleaner.profilePhoto} className="w-full h-full object-cover" /> : getInitials(selectedCleaner.name)}
-              </div>
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                   <h4 className="text-xl font-black text-slate-800 leading-tight uppercase italic">{selectedCleaner.name}</h4>
-                   <span className="bg-green-50 text-green-600 px-2.5 py-0.5 rounded-full text-[9px] border border-green-100 uppercase">Active</span>
-                </div>
-                <p className="text-blue-600 font-bold text-xs mt-1 uppercase tracking-widest">{selectedCleaner.partnerId || 'Pending'}</p>
-                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">Full Time Cleaner</p>
-                <div className="flex items-center gap-1 text-amber-500 mt-2">
-                   <Star size={12} fill="currentColor"/> <span className="text-[11px] font-black tracking-tighter italic">4.8 (156 Ratings)</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Sidebar Tabs */}
-            <div className="flex gap-4 border-b border-slate-100 italic">
-              {['Profile', 'Documents', 'Earnings', 'Activity'].map(t => (
-                <button key={t} className={`pb-2 text-[10px] font-black uppercase tracking-[0.15em] border-b-2 transition-all ${t === 'Profile' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-300 hover:text-slate-500'}`}>{t}</button>
-              ))}
-            </div>
-
-            <div className="space-y-10 not-italic font-bold">
-               {/* Personal Information */}
-               <section>
-                  <label className="text-[10px] font-black text-slate-300 uppercase block mb-4 tracking-widest italic border-b border-slate-50 pb-1">Personal Information</label>
-                  <div className="grid grid-cols-2 gap-y-5 gap-x-6">
-                     <DetailBox label="Mobile Number" value={selectedCleaner.mobileNo || selectedCleaner.mobile} />
-                     <DetailBox label="Email" value={selectedCleaner.email || "ramesh.kumar@gmail.com"} />
-                     <DetailBox label="Date of Birth" value={selectedCleaner.dob || "12 Jan 1988"} />
-                     <DetailBox label="Address" value={selectedCleaner.address || "#123, 1st Main, Bangalore"} />
-                  </div>
-               </section>
-
-               {/* Work Information */}
-               <section>
-                  <label className="text-[10px] font-black text-slate-300 uppercase block mb-4 tracking-widest italic border-b border-slate-50 pb-1">Work Information</label>
-                  <div className="grid grid-cols-2 gap-y-5 gap-x-6">
-                     <DetailBox label="Type" value={selectedCleaner.cleanerType || "Full Time"} />
-                     <DetailBox label="Join Date" value="10 Feb 2023" />
-                    <DetailBox label="Supervisor" value={selectedCleaner.supervisor || '—'} />
-                     <DetailBox label="Apartments" value={selectedCleaner.apartments || "Green View Heights"} />
-                     <DetailBox label="Assigned Cars" value="28 Cars" />
-                  </div>
-               </section>
-
-               {/* Performance */}
-               <section>
-                  <label className="text-[10px] font-black text-slate-300 uppercase block mb-4 tracking-widest italic border-b border-slate-50 pb-1">Performance</label>
-                  <div className="grid grid-cols-2 gap-y-5 gap-x-6 text-slate-800 font-black italic">
-                     <DetailBox label="Total Cleanings" value="1,256" />
-                     <DetailBox label="This Month" value="95" />
-                  </div>
-               </section>
-            </div>
-          </div>
-          <div className="p-6 border-t border-slate-100"><button className="w-full py-4 bg-[#0047FF] text-white rounded-2xl font-black text-xs uppercase shadow-xl shadow-blue-200">View Full Profile</button></div>
-        </aside>
-      )}
-
-      {/* ── ADD CLEANER MODAL ── */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 italic font-black">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50 uppercase leading-none">
-              <div><h3 className="text-xl text-slate-800">Register New Cleaner</h3><p className="text-[9px] text-slate-400 not-italic uppercase tracking-widest mt-2 font-bold">Full Profile Data Entry</p></div>
-              <button onClick={() => setShowAddModal(false)} className="p-2 text-slate-300 hover:text-slate-800"><X size={24}/></button>
-            </div>
-            <form onSubmit={handleRegister} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar font-black uppercase text-[9px] text-slate-400">
-              <div className="flex flex-col items-center">
-                <div className="relative group cursor-pointer" onClick={() => fileInputRef.current.click()}>
-                  <div className="w-24 h-24 rounded-[2rem] bg-slate-50 border-2 border-dashed flex items-center justify-center overflow-hidden transition-all group-hover:border-blue-400 shadow-inner">
-                    {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover animate-in fade-in" /> : <Camera size={28} className="text-slate-300 mx-auto" />}
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white p-1.5 rounded-xl border-2 border-white"><Plus size={14} strokeWidth={4} /></div>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handlePhotoChange} />
-                </div>
-                <p className="mt-2 italic tracking-widest">Upload Photo</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 italic">
-                <Input label="Name *" placeholder="Rahul" value={formData.name} onChange={(v) => setFormData({...formData, name: v})} required />
-                <Input label="Mobile *" placeholder="9876543210" value={formData.mobile} onChange={(v) => setFormData({...formData, mobile: v})} required />
-                <Input label="Email" placeholder="rahul@gmail.com" value={formData.email} onChange={(v) => setFormData({...formData, email: v})} />
-                <Input label="DOB" placeholder="16/09/2002" value={formData.dob} onChange={(v) => setFormData({...formData, dob: v})} />
-                <div className="md:col-span-2"><Input label="Address" placeholder="shaganj agra" value={formData.address} onChange={(v) => setFormData({...formData, address: v})} /></div>
-                <div className="md:col-span-2"><Input label="Supervisor Name" placeholder="e.g. Suresh Yadav" value={formData.supervisor} onChange={(v) => setFormData({...formData, supervisor: v})} /></div>
-                </div>
-              <div className="flex gap-4 pt-4 border-t border-slate-50 uppercase tracking-widest">
-                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl">Cancel</button>
-                <button disabled={submitting} type="submit" className="flex-1 py-4 bg-[#0047FF] text-white rounded-2xl shadow-xl shadow-blue-100 active:scale-95 disabled:opacity-50">
-                   {submitting ? 'Registering...' : <><Save size={16} className="inline mr-1"/> Save Cleaner</>}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Detail Panel */}
+      {selected && <DetailPanel c={selected} onClose={()=>setSelected(null)} />}
     </div>
-  );
+  )
 }
 
-// ── UI HELPERS ──
-const Kpi = ({ icon: Icon, label, value, sub, color }) => (
-  <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm flex flex-col justify-between h-full min-h-[150px]">
-    <div className="flex justify-between items-start mb-4">
-      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{label}</span>
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-inner" style={{ backgroundColor: `${color}10`, color }}> <Icon size={20} strokeWidth={2.5} /> </div>
-    </div>
-    <div className="text-2xl font-black text-slate-800 leading-none mb-1 tracking-tighter italic">{value}</div>
-    <div className="text-[9px] font-bold text-green-500 uppercase tracking-tighter leading-none italic">{sub}</div>
-  </div>
-);
-
-const Input = ({ label, value, onChange, type="text", placeholder, required }) => (
-  <div className="flex flex-col gap-2">
-    <label className="ml-1 uppercase tracking-widest text-slate-400 font-black">{label}</label>
-    <input required={required} type={type} placeholder={placeholder} className="w-full px-5 py-5 bg-slate-50 border-none rounded-[1.5rem] text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-blue-100 transition-all shadow-inner italic" value={value} onChange={(e) => onChange(e.target.value)} />
-  </div>
-);
-
-const DetailBox = ({ label, value }) => (
-  <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100 shadow-inner">
-    <label className="text-[9px] font-black text-slate-300 uppercase block mb-1 tracking-widest italic">{label}</label>
-    <p className="text-sm font-bold text-slate-800 leading-none">{value || '—'}</p>
-  </div>
-);
+// ── Shared Styles ─────────────────────────────────────────────────────────────
+const lbStyle  = { display:'block', fontSize:12, fontWeight:600, color:'#374151', marginBottom:5 }
+const inStyle  = { width:'100%', padding:'9px 12px', fontSize:13, border:'1px solid #d1d5db', borderRadius:8, outline:'none', boxSizing:'border-box', color:'#0f172a', background:'#fff' }
+const secStyle = { fontSize:11, fontWeight:700, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'.05em', marginBottom:10, paddingBottom:6, borderBottom:'1px solid var(--border)', marginTop:4 }
