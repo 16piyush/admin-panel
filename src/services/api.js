@@ -132,13 +132,11 @@ getFranchises: (params) =>
   }).then(normalizeUsers),
 
 createFranchise: (data) =>
-  api.post('/admin/users/create', {
-    name: data.name || data.businessName,
+  api.post('/auth/register', {
     mobileNo: data.mobileNo || data.mobile,
-    email: data.email,
-    password: data.password || 'User@123',
     role: 'FR',
-    notes: data.notes || `Business: ${data.businessName || ''}, City: ${data.city || ''}, Region: ${data.region || ''}, GSTIN: ${data.gstin || ''}, Address: ${data.address || ''}`,
+    name: data.name || data.businessName,
+    entityType: data.entityType || 'company',
   }),
 
 approveFranchise: (id) =>

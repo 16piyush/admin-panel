@@ -251,20 +251,14 @@ function AddFranchiseModal({ onClose, onSuccess }) {
     try {
       // Backend expects 'mobile' instead of 'mobileNo' for its createInternalUser function
       const payload = {
-        name: form.ownerName, 
-        mobile: form.mobileNo.replace(/\D/g,''),
-        email: form.email, 
-        password: form.password, 
-        role: 'FR', // Ensure role is sent
-        businessName: form.businessName,
-        city: form.city, 
-        region: form.region, 
-        gstin: form.gstin, 
-        address: form.address,
+        mobileNo:form.mobileNo.replace(/\D/g),
+        role:'FR',
+        name:form.ownerName,
+        entityType:'company',
       };
 
       // Calling createInternal because we updated the backend to allow FR role there
-      await adminAPI.createInternal(payload); 
+      await adminAPI.createFranchise(payload); 
       setSuccess(true)
       setTimeout(() => { onSuccess?.(); onClose() }, 1500)
     } catch (err) {
