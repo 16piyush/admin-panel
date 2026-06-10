@@ -16,15 +16,15 @@ api.interceptors.request.use(cfg => {
 api.interceptors.response.use(
   res => res,
   err => {
-    const url = err.config?.url || ''
-    const isCreateOp = url.includes('create') || url.includes('register')
-      || url.includes('approve') || url.includes('reject')
+   // const url = err.config?.url || ''
+    //const isCreateOp = url.includes('create') || url.includes('register')
+      //|| url.includes('approve') || url.includes('reject')
 
-    if (err.response?.status === 401 && !isCreateOp) {
-      localStorage.removeItem('adminToken')
-      localStorage.removeItem('adminUser')
-      window.location.href = '/login'
-    }
+    //if (err.response?.status === 401 && !isCreateOp) {
+      //localStorage.removeItem('adminToken')
+      //localStorage.removeItem('adminUser')
+      //window.location.href = '/login'
+    //}
     return Promise.reject(err)
   }
 )

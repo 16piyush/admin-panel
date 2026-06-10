@@ -311,14 +311,23 @@ function AllFranchises() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('All')
 
   const load = useCallback(() => {
-    setLoading(true)
-    adminAPI.getUsers({ role:'FR', limit:10 }).then(res => {
-      setFranchises(res.data?.data || []);
-      setMeta(res.data?.meta || { total:0, pages:1 });
-    }).catch(()=>{}).finally(() => setLoading(false))
-  }, [])
+  setLoading(true)
+  adminAPI.getFranchises({ limit: 100 }).then(res => {
+    const all = res.data?.data || [];
+    setFranchises(all);
+    setMeta({ 
+      total: all.filter(f => 
+        f.status !== 'rejected' && 
+        f.status !== 'Rejected'
+      ).length,
+      pages: res.data?.meta?.pages || 1 
+    });
+  }).catch(()=>{}).finally(() => setLoading(false))
+}, [])
 
   useEffect(() => { load() }, [load])
 
@@ -338,14 +347,31 @@ function AllFranchises() {
         {/* KPI Section */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:20 }}>
           <KpiCard icon="🏪" iconBg="#eff6ff" label="Total" value={meta.total} loading={loading} sub="Franchise network" />
-          <KpiCard icon="✅" iconBg="#f0fdf4" label="Active" value={franchises.filter(f=>f.status==='Active').length} loading={loading} />
-          <KpiCard icon="⏳" iconBg="#fff7ed" label="Pending" value={franchises.filter(f=>f.status==='Pending').length} loading={loading} />
-          <KpiCard icon="₹" iconBg="#f0fdfa" label="Revenue" value="₹ 10.06L" loading={false} sub="↑ 16.7%" subColor="#16a34a" />
+          <KpiCard icon="✅" iconBg="#f0fdf4" label="Active" value={franchises.filter(f=> f.isActive || f.status==='Active' || f.status==='active').length}  loading={loading} />
+         <KpiCard icon="⏳" iconBg="#fff7ed" label="Pending" value={franchises.filter(f=> f.status==='pending_approval' || f.status==='Pending' || 
+          f.status==='pending').length} 
+  loading={loading} /><KpiCard icon="₹" iconBg="#f0fdfa" label="Revenue" value="₹ 10.06L" loading={false} sub="↑ 16.7%" subColor="#16a34a" />
         </div>
 
         <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}>
            <button onClick={()=>setShowAdd(true)} style={{ padding:'9px 18px', background:'var(--accent)', color:'#fff', borderRadius:8, fontWeight:600, fontSize:13, cursor:'pointer', border:'none' }}>+ Add Franchise</button>
         </div>
+        {/* Search + Filter Bar */}
+<div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
+  <div style={{ position:'relative', flex:1, minWidth:200 }}>
+    <span style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text3)' }}>🔍</span>
+    <input type="text" value={search} onChange={e=>setSearch(e.target.value)}
+      placeholder="Search by name, mobile, code..."
+      style={{ width:'100%', padding:'9px 12px 9px 32px', fontSize:12, border:'1px solid var(--border)', borderRadius:8, outline:'none', boxSizing:'border-box' }} />
+  </div>
+  {['All','Active','Pending','Rejected'].map(f => (
+    <button key={f} onClick={()=>setFilter(f)}
+      style={{ padding:'8px 16px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+        border:'1px solid var(--border)',
+        background: filter===f ? 'var(--accent)' : '#fff',
+        color: filter===f ? '#fff' : 'var(--text2)' }}>{f}</button>
+  ))}
+</div>
 
         {showAdd && <AddFranchiseModal onClose={()=>setShowAdd(false)} onSuccess={load} />}
 
@@ -354,7 +380,12 @@ function AllFranchises() {
             <table style={{ width:'100%', borderCollapse:'collapse', minWidth:900 }}>
               <thead><tr style={{ background:'#f8fafc' }}>{['Code','Business Name','Owner','City','Status','Actions'].map(h=><th key={h} style={{ padding:14, textAlign:'left', fontSize:11, textTransform:'uppercase', color:'var(--text3)' }}>{h}</th>)}</tr></thead>
               <tbody>
-                {loading ? <SkeletonRow cols={6}/> : franchises.map(f => (
+                {loading ? <SkeletonRow cols={6}/> : franchises.filter(f =>{
+                  const q = search.toLowerCase()
+                   const matchSearch = !q || (f.name||'').toLowerCase().includes(q) || (f.mobileNo||'').includes(q) || (f.partnerId||'').toLowerCase().includes(q)
+                   const matchFilter = filter==='All' || (filter==='Active' && (f.status==='active'||f.status==='Active')) || (filter==='Pending' && (f.status==='pending_approval'||f.status==='pending')) || (filter==='Rejected' && (f.status==='rejected'||f.status==='Rejected'))
+                   return matchSearch && matchFilter
+                }).map(f=> (
                   <tr key={f._id} style={{ borderBottom:'1px solid var(--border)' }}>
                     <td style={{ padding:14, fontSize:12, fontWeight:700, color:'var(--accent)' }}>{f.partnerId || f._id?.slice(-8).toUpperCase()}</td>
                     <td style={{ padding:14 }}>

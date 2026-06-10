@@ -415,36 +415,39 @@ const totalPending = allData.filter(p => p.status === 'pending_approval').length
                       </td>
 
                       {/* Actions */}
+                    
                       <td style={{ padding:'13px 14px' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                          {/* View */}
-                          <button title="View Details"
-                            onClick={() => setSelectedPartner(p)}
-                             style={{ ...iBtn, color:'var(--text2)' }}>👁</button>
+                       <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                      {/* View */}
+                      <button title="View Details"
+                       onClick={() => setSelectedPartner(p)}
+                       style={{ ...iBtn, color:'var(--text2)' }}>👁</button>
 
-                          {/* Approve — show for pending/unverified/not approved */}
-                          <button title="Approve"
-                            onClick={()=>handleAction(pid, p.role, 'Approved')}
-                            disabled={isLoading}
-                            style={{ ...iBtn, color:'#16a34a', background:'#f0fdf4',
-                              border:'1px solid #bbf7d0', opacity:isLoading?.5:1 }}>
-                            {isLoading ? '…' : '✓'}
-                          </button>
+                      {/* Approve & Reject — sirf Pending pe dikhao */}
+                      {(status === 'Pending' || status === 'pending' || status === 'pending_approval') && (
+                         <>
+                     <button title="Approve"
+                      onClick={()=>handleAction(pid, p.role, 'Approved')}
+                      disabled={isLoading}
+                      style={{ ...iBtn, color:'#16a34a', background:'#f0fdf4',
+                      border:'1px solid #bbf7d0', opacity:isLoading?.5:1 }}>
+                      {isLoading ? '…' : '✓'}
+                     </button>
+                     <button title="Reject"
+                      onClick={()=>handleAction(pid, p.role, 'Rejected')}
+                      disabled={isLoading}
+                      style={{ ...iBtn, color:'#dc2626', background:'#fef2f2',
+                      border:'1px solid #fecaca', opacity:isLoading?.5:1 }}>
+                     {isLoading ? '…' : '✕'}
+                   </button>
+                  </>
+                )}
 
-                          {/* Reject */}
-                          <button title="Reject"
-                            onClick={()=>handleAction(pid, p.role, 'Rejected')}
-                            disabled={isLoading}
-                            style={{ ...iBtn, color:'#dc2626', background:'#fef2f2',
-                              border:'1px solid #fecaca', opacity:isLoading?.5:1 }}>
-                            {isLoading ? '…' : '✕'}
-                          </button>
-
-                          {/* More */}
-                          <button title="More" style={{ ...iBtn, color:'var(--text2)' }}>⋯</button>
-                        </div>
-                      </td>
-                    </tr>
+                {/* More */}
+                <button title="More" style={{ ...iBtn, color:'var(--text2)' }}>⋯</button>
+               </div>
+              </td>
+             </tr>
                   )
                 })}
             </tbody>

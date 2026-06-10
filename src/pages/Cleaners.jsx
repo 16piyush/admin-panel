@@ -125,7 +125,7 @@ export default function Cleaners() {
                     <td className="px-6 py-4 italic"><span className="px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-[9px] font-black uppercase tracking-wider italic">{c.cleanerType || 'Full Time'}</span></td>
                     <td className="px-6 py-4 text-center">{c.apartments || '3'}</td>
                     <td className="px-6 py-4 text-center font-black">{c.assignedCars || '20'}</td>
-                    <td className="px-6 py-4"><div className="text-[11px] font-black text-slate-700">Suresh Yadav</div><div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">SU-215</div></td>
+                    <div className="text-[11px] font-black text-slate-700">{c.supervisor || '—'}</div>
                     <td className="px-6 py-4 text-amber-500 font-black flex items-center gap-1"><Star size={12} fill="currentColor"/> 4.8</td>
                     <td className="px-6 py-4 text-center"><span className="px-3 py-1 rounded-full bg-green-50 text-green-600 text-[10px] font-black border border-green-100 uppercase italic">Active</span></td>
                     <td className="px-6 py-4 text-center">
@@ -190,7 +190,7 @@ export default function Cleaners() {
                   <div className="grid grid-cols-2 gap-y-5 gap-x-6">
                      <DetailBox label="Type" value={selectedCleaner.cleanerType || "Full Time"} />
                      <DetailBox label="Join Date" value="10 Feb 2023" />
-                     <DetailBox label="Supervisor" value="Suresh Yadav (SU-215)" />
+                    <DetailBox label="Supervisor" value={selectedCleaner.supervisor || '—'} />
                      <DetailBox label="Apartments" value={selectedCleaner.apartments || "Green View Heights"} />
                      <DetailBox label="Assigned Cars" value="28 Cars" />
                   </div>
@@ -235,7 +235,8 @@ export default function Cleaners() {
                 <Input label="Email" placeholder="rahul@gmail.com" value={formData.email} onChange={(v) => setFormData({...formData, email: v})} />
                 <Input label="DOB" placeholder="16/09/2002" value={formData.dob} onChange={(v) => setFormData({...formData, dob: v})} />
                 <div className="md:col-span-2"><Input label="Address" placeholder="shaganj agra" value={formData.address} onChange={(v) => setFormData({...formData, address: v})} /></div>
-              </div>
+                <div className="md:col-span-2"><Input label="Supervisor Name" placeholder="e.g. Suresh Yadav" value={formData.supervisor} onChange={(v) => setFormData({...formData, supervisor: v})} /></div>
+                </div>
               <div className="flex gap-4 pt-4 border-t border-slate-50 uppercase tracking-widest">
                 <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl">Cancel</button>
                 <button disabled={submitting} type="submit" className="flex-1 py-4 bg-[#0047FF] text-white rounded-2xl shadow-xl shadow-blue-100 active:scale-95 disabled:opacity-50">
